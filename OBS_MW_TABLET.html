@@ -1,0 +1,2881 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>OBS Multiview + TAKE (Mobile)</title>
+
+  <style>
+    :root{
+      --bg:#050811;
+      --panel:#0a0f1a;
+      --line:rgba(255,255,255,.15);
+      --txt:#e8eef5;
+      --muted:#7b8ba8;
+      --accent:#00d4ff;
+
+      --gap:0px;
+      --dockW: clamp(80px, 15vw, 80px);
+
+      /* ================= TABLET MULTIVIEW ================= */
+      --srcW: clamp(120px, 18vw, 200px);
+      --srcBtnH: 50px;
+      --srcGap: 6px;
+      --srcPad: 8px;
+
+      --dockGap: 5px;
+      --takeMinH: 90px;
+
+      --radius:10px;
+      --green: rgba(0,255,0,1);
+      --red:   rgba(255,0,0,1);
+
+      --tap-min: 40px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:var(--bg);
+      color:var(--txt);
+      overscroll-behavior:none;
+    }
+
+    /* ================= HEADER (plegable) ================= */
+    header{
+      position:sticky;
+      top:0;
+      z-index:10;
+      background:linear-gradient(180deg,#0b1220,#0a0f1a);
+      border-bottom:1px solid var(--line);
+      padding:0px 0px;
+    }
+    header.collapsed{padding-bottom:0px}
+    .row{display:flex;gap:2px;flex-wrap:wrap;align-items:center}
+
+    .hdrTop{flex-wrap:nowrap}
+    .hdrTitle{display:flex;gap:2px;align-items:center;min-width:0;flex:1}
+    .hdrTitleText{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hdrBtns{display:flex;gap:1px;align-items:center}
+    .iconBtn{
+      min-height: var(--tap-min);
+      min-width: var(--tap-min);
+      width: var(--tap-min);
+      padding:0;
+      display:grid;place-items:center;
+      font-size:10px;font-weight:1000;
+    }
+    .hdrBody{margin-top:0px}
+    header.collapsed .hdrBody{display:none}
+
+    input, select, button{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--txt);
+      border-radius:10px;
+      padding:2px 2px;
+      font-weight:650;
+      outline:none;
+      min-height: var(--tap-min);
+    }
+    input{min-width:180px;flex:1}
+    select{flex:1; min-width:140px}
+    button{cursor:pointer}
+    button.primary{border-color:var(--accent);background:rgba(0,212,255,.14)}
+    button.take{border-color:rgba(255,255,255,.25); background:rgba(255,51,102,.18)}
+    button:active{transform:translateY(1px)}
+
+    .dot{width:10px;height:10px;border-radius:50%;background:#666}
+    .dot.ok{background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,.6)}
+    .dot.bad{background:#ff3366;box-shadow:0 0 10px rgba(255,51,102,.6)}
+    .small{font-size:11px;color:var(--muted);font-weight:850}
+
+    main{padding:10px}
+
+    /* ================= TABLET: LAYOUT CON FUENTES A LA IZQUIERDA ================= */
+    .layout{
+      display:grid;
+      grid-template-columns: var(--srcW) 1fr;
+      gap: var(--gap);
+      align-items: start;
+    }
+
+    /* ================= UTIL: elementos que ocupan TODO el ancho de la grid (incluye columna FUENTES) ================= */
+    .fullSpan{ grid-column: 1 / -1; }
+
+    @media (max-width: 700px){
+      .layout{ grid-template-columns: 1fr; }
+      .sourcesCol{ order: 2; }
+      .contentCol{ order: 1; }
+    }
+
+    .sourcesCol{
+      position: sticky;
+      top: calc(var(--tap-min) + 4px);
+      align-self: start;
+    }
+
+    .sourcesPanel{
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      min-height: 30px;
+    }
+    .sourcesHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+    }
+    .sourcesHead .label{
+      font-size:10px;
+      color: var(--muted);
+      font-weight: 950;
+      letter-spacing:.04em;
+      text-transform: uppercase;
+    }
+    .sourcesHead .sceneName{
+      font-size:10px;
+      color: rgba(255,255,255,.85);
+      font-weight: 900;
+      max-width: 55%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      text-align:right;
+    }
+
+    .sourcesList{
+      padding: var(--srcPad);
+      display:flex;
+      flex-direction:column;
+      gap: var(--srcGap);
+      max-height: calc(100vh - 140px);
+      overflow:auto;
+      overscroll-behavior: contain;
+    }
+
+    .srcBtn{
+      height: var(--srcBtnH);
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      color: var(--txt);
+      border-radius: 10px;
+      font-weight: 950;
+      font-size: 12px;
+      padding: 0 10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .srcBtn .name{
+      flex:1;
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      text-align:left;
+    }
+    .srcBtn .state{
+      font-weight:1000;
+      font-size:11px;
+      opacity:.95;
+    }
+    .srcBtn.on{
+      border-color: rgba(0,255,136,.55);
+      background: rgba(0,255,136,.12);
+    }
+    .srcBtn.off{
+      border-color: rgba(255,51,102,.30);
+      background: rgba(255,51,102,.08);
+      opacity: .88;
+    }
+
+    /* ================= TOP (Preview | Program | Dock) ================= */
+    .top{
+      display:grid;
+      grid-template-columns: 1fr 1fr var(--dockW);
+      gap:var(--gap);
+      margin-bottom:var(--gap);
+      align-items:stretch;
+    }
+    @media (max-width: 700px){
+      .top{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      overflow:hidden;
+      min-height: 30px;
+    }
+
+    .live{ position:relative; }
+    .ms{
+      position:absolute; right:8px; top:8px;
+      background:rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.18);
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:12px;
+      color:var(--txt);
+      pointer-events:none;
+      backdrop-filter: blur(6px);
+    }
+
+    .viewer{
+      width:100%;
+      aspect-ratio: 16 / 9;
+      background:#000;
+      display:block;
+      object-fit:cover;
+      touch-action: manipulation;
+    }
+
+    /* ================= DOCK (TRANSICIÓN + TAKE) ================= */
+    .dock{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:var(--dockGap);
+      padding:0px;
+    }
+    .dock .label{font-size:10px;color:var(--muted);font-weight:950;letter-spacing:.04em}
+    .dock .line{height:1px;background:var(--line)}
+    .dock input,.dock select,.dock button{width:100%}
+    .dock button.take{min-height:var(--takeMinH);font-size:20px;font-weight:1000}
+    .dock .status{font-size:5px;color:var(--muted);font-weight:900;min-height:0px}
+
+    /* ======== AJUSTE PEDIDO: QUITAR LEYENDAS Y REDUCIR ALTURA (SIN ROMPER NADA) ======== */
+    /* Oculta SOLO las leyendas del dock (no afecta a la cabecera de FUENTES) */
+    .rightDock .label{ display:none !important; }
+
+    /* Reduce a ~mitad la altura del selector de transición y del input de duración */
+    .rightDock select,
+    .rightDock input{
+      min-height:20px !important;
+      height:20px !important;
+      padding:0 6px !important;
+      font-size:12px !important;
+      line-height:18px !important;
+      border-radius:8px !important;
+    }
+
+    /* Compacta el dock para ganar altura total */
+    .rightDock.dock{
+      gap:4px !important;
+      padding:4px !important;
+    }
+
+    /* Status y línea más discretos (opcional pero ayuda) */
+    .rightDock .line{ margin-top:2px; }
+    .rightDock .status{
+      font-size:9px !important;
+      min-height:10px !important;
+      line-height:10px !important;
+    }
+
+    /* Borde de estado */
+    .frame{outline:0 solid transparent; outline-offset:-4px}
+    .frame.preview{outline:3px solid var(--green)}
+    .frame.program{outline:3px solid var(--red)}
+
+    /* ================= GRID ESCENAS ================= */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap:var(--gap);
+    }
+    @media (max-width: 1000px){ .grid{grid-template-columns: repeat(6, 1fr);} }
+    @media (max-width: 700px){ .grid{grid-template-columns: repeat(4, 1fr);} }
+    @media (max-width: 480px){ .grid{grid-template-columns: repeat(3, 1fr);} }
+    @media (max-width: 320px){ .grid{grid-template-columns: repeat(2, 1fr);} }
+
+    .tile{
+      position:relative;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+    }
+    .tile:hover{transform: translateY(-1px)}
+    .badge{
+      position:absolute;left:8px;bottom:8px;
+      background:rgba(0,0,0,.55);
+      border:1px solid rgba(255,255,255,.18);
+      padding:6px 10px;border-radius:999px;
+      font-weight:1000;font-size:11px;
+      backdrop-filter: blur(8px);
+      max-width: calc(100% - 16px);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+
+    /* ================= BOTONERA INFERIOR NUMÉRICA (para botones físicos) =================
+       OBJETIVO:
+       - Esta "botonera" va JUSTO debajo del grid de ESCENAS y ANTES del LOG.
+       - Sirve para que tengas una fila de botones que coincida con botones físicos
+         (que suelen enviar teclas/atajos). Al pulsar el botón (o su atajo),
+         se selecciona la escena igual que tocando una miniatura.
+       - Se ilumina con el mismo estado que las miniaturas: PREVIEW (verde) / PROGRAM (rojo).
+
+       AJUSTES RÁPIDOS (solo tocar variables):
+       - --bb-height   : alto de cada botón
+       - --bb-gap      : separación entre botones
+       - --bb-fontSize : tamaño del número (grande)
+       - --bb-weight   : peso del número
+       - --bb-cols     : cuántos botones por línea (8, 10, 12...)
+       - --bb-barPad   : padding del contenedor
+    */
+    
+:root{
+  --bb-height: 80px;
+  --bb-gap: 8px;
+
+  /* CUÁNTOS BOTONES POR LÍNEA (8, 10, 12...) */
+  --bb-cols: 11;
+
+  /* Tamaño del número (grande) */
+  --bb-fontSize: 30px;
+  --bb-weight: 1000;
+
+  /* Estética */
+  --bb-barPad: 6px;
+  --bb-radius: 12px;
+}
+
+    .bottomBar{
+      margin-top: 0px; /* pegada a las escenas */
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: var(--bb-barPad);
+      overflow: hidden;
+    }
+
+    /* Cabecera opcional (pequeñita). Si no la quieres, puedes ocultarla con:
+       .bottomBarHead{display:none;}
+    */
+    .bottomBarHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 8px;
+      padding: 4px 6px 6px 6px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      margin-bottom: 6px;
+      background: rgba(0,0,0,.12);
+      border-radius: calc(var(--radius) - 2px);
+    }
+    .bottomBarHead .label{
+      font-size:10px;
+      color: var(--muted);
+      font-weight: 950;
+      letter-spacing:.04em;
+      text-transform: uppercase;
+    }
+    .bottomBarHead .hint{
+      font-size:10px;
+      color: rgba(255,255,255,.60);
+      font-weight: 900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      text-align:right;
+      max-width: 70%;
+    }
+
+    /* Contenedor de botones: por defecto 1 línea + scroll horizontal (ideal para "coincidir" con botones físicos). */
+    
+/* Contenedor de botones:
+   - Ahora es GRID para poder fijar EXACTAMENTE cuántos botones hay por línea.
+   - Ajusta --bb-cols arriba (8, 10, 12...) y automáticamente saltará a otra fila.
+*/
+.bottomBtns{
+  display: grid;
+  grid-template-columns: repeat(var(--bb-cols), minmax(0, 1fr));
+  gap: var(--bb-gap);
+  align-items: stretch;
+}
+
+
+    
+/* Botón individual (SOLO NÚMERO) */
+.bbtn{
+  width: 100%;
+  min-width: 0;
+  height: var(--bb-height);
+
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.05);
+      border-radius: var(--bb-radius);
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      font-size: var(--bb-fontSize);
+      font-weight: var(--bb-weight);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .02em;
+
+      user-select:none;
+      white-space:nowrap;
+      cursor:pointer;
+      transition: transform .06s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+
+    .bbtn:active{ transform: scale(.96); }
+
+    /* Estados (mismo idioma visual que las miniaturas) */
+    .bbtn.preview{
+      border-color: rgba(0,255,0,1);
+      background: rgba(0,255,0,.40);
+      box-shadow: 0 0 22px rgba(0,255,0,.85);
+      text-shadow: 0 0 10px rgba(0,255,0,.85);
+    }
+    .bbtn.program{
+      border-color: rgba(255,0,0,1);
+      background: rgba(255,0,0,.38);
+      box-shadow: 0 0 24px rgba(255,0,0,.85);
+      text-shadow: 0 0 10px rgba(255,0,0,.85);
+    }
+/* Log */
+    .log{
+      margin-top:10px;
+      background:rgba(0,0,0,.4);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:12px;color:var(--muted);
+      max-height:22vh;overflow:auto;line-height:1.35;
+    }
+
+    /* ================= HEADER: MONITORES (REC/STREAM) + STUDIO TOGGLE ================= */
+    .monitors{display:flex;gap:10px;align-items:center;margin-left:6px}
+    .mon{display:flex;gap:6px;align-items:center}
+    .mon .lbl{font-size:10px;color:var(--muted);font-weight:950;letter-spacing:.04em}
+    .led{
+      width:10px;height:10px;border-radius:50%;
+      background:#444;border:1px solid rgba(255,255,255,.18);
+      box-shadow:none;
+    }
+    .led.on{background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,.55)}
+    .led.blink{ animation: ledBlink 1s infinite; }
+    @keyframes ledBlink{
+      0%,60%{filter:brightness(1)}
+      80%{filter:brightness(1.8)}
+      100%{filter:brightness(1)}
+    }
+    .studioToggle{
+      min-height: var(--tap-min);
+      padding:0 10px;
+      font-size:11px;
+      font-weight:1000;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .studioToggle.on{
+      border-color: rgba(0,255,136,.55);
+      background: rgba(0,255,136,.12);
+    }
+    .studioToggle.off{
+      border-color: rgba(255,51,102,.35);
+      background: rgba(255,51,102,.10);
+    }
+  
+    /* ================= NAV CENTRAL (AUDIO / CONF) ================= */
+    .hdrTitle{ position:relative; }
+    .midNav{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+    }
+    .midBtn{
+      min-height: var(--tap-min);
+      padding:0 12px;
+      font-size:11px;
+      font-weight:1000;
+      border-radius:999px;
+      white-space:nowrap;
+      border:1px solid rgba(255,255,255,.20);
+      background:rgba(255,255,255,.06);
+    }
+    .midBtn.primary{
+      border-color: var(--accent);
+      background: rgba(0,212,255,.14);
+    }
+    .midBtn.on{
+      border-color: rgba(0,255,136,.55);
+      background: rgba(0,255,136,.12);
+    }
+
+    /* ================= PANEL AUDIO (overlay) ================= */
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:999;
+      background:rgba(5,8,17,.86);
+      backdrop-filter: blur(10px);
+      display:none;
+      flex-direction:column;
+    }
+    .overlay.show{ display:flex; }
+    .overlayHead{
+      position:sticky;
+      top:0;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#0b1220,#0a0f1a);
+    }
+    .overlayTitle{
+      font-weight:950;
+      letter-spacing:.02em;
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .overlayBody{
+      padding:10px;
+      overflow:auto;
+      overscroll-behavior: contain;
+    }
+    .overlayClose{
+      min-height: var(--tap-min);
+      min-width: var(--tap-min);
+      width: var(--tap-min);
+      display:grid;
+      place-items:center;
+      border-radius:12px;
+      font-weight:1000;
+    }
+
+    /* ================= MIXER (audio) ================= */
+    .mixer{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      margin-bottom:10px;
+      display:grid;
+      grid-template-columns: 1fr 80px;
+      gap:8px;
+      align-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .mixer-name{
+      font-size:14px;
+      font-weight:1000;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .mixer-vol{
+      text-align:right;
+      font-size:12px;
+      font-weight:1000;
+      color:var(--accent);
+    }
+    .mixer-mute{
+      grid-column:1 / -1;
+      width:100%;
+      padding:10px;
+      border-radius:12px;
+      font-weight:1000;
+      position:relative;
+      overflow:hidden;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.18);
+    }
+    .mixer-mute.muted{
+      background: rgba(255,51,102,.20);
+      border-color: rgba(255,51,102,.55);
+    }
+    .mixer-range{
+      grid-column:1 / -1;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .fader-container{
+      grid-column:1 / -1;
+      display:grid;
+      grid-template-columns: 28px 1fr 28px;
+      gap:4px;
+      align-items:center;
+      padding:4px 0;
+    }
+    .fader-wrap{
+      height:16px;
+      position:relative;
+      background:rgba(0,0,0,.3);
+      border-radius:8px;
+      overflow:hidden;
+    }
+    .fader-fill{
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      background:linear-gradient(90deg, var(--preview), var(--accent));
+      width:50%;
+      transition:width .08s;
+      pointer-events:none;
+    }
+    .fader-thumb{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      width:20px;
+      height:20px;
+      background:var(--txt);
+      border-radius:50%;
+      cursor:grab;
+      box-shadow:0 2px 8px rgba(0,0,0,.5);
+      pointer-events:none;
+    }
+    .hotkey-side{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      height:24px;
+    }
+    .hotkey-side .hotkey-label{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      bottom:auto;
+      right:auto;
+      font-size:8px;
+      padding:1px 3px;
+      max-width:26px;
+    }
+
+    .mixer-range input[type="range"]{
+      width:100%;
+    }
+
+    /* ================= HOTKEYS (EDIT MODE) ================= */
+    .hotspot{
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.35);
+      background:rgba(0,0,0,.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      z-index:10;
+      user-select:none;
+      touch-action: manipulation;
+      flex-shrink:0;
+      position:absolute;
+      top:6px;
+      right:6px;
+    }
+    .hotspot::after{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:rgba(255,255,255,.35);
+      display:block;
+    }
+    .hotspot.has::after{
+      background:var(--accent);
+      box-shadow:0 0 8px rgba(0,212,255,.6);
+    }
+    .hotspot.listening{
+      border-color:var(--accent);
+      box-shadow:0 0 10px rgba(0,212,255,.5);
+    }
+    .hotkey-label{
+      position:absolute;
+      bottom:6px;
+      right:6px;
+      max-width:90%;
+      font-size:9px;
+      font-weight:1000;
+      color:rgba(255,255,255,.92);
+      background:rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.15);
+      border-radius:6px;
+      padding:2px 4px;
+      z-index:2;
+      pointer-events:none;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .btn-listening::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:rgba(0,212,255,.10);
+      border:1px dashed rgba(0,212,255,.35);
+      border-radius:10px;
+      pointer-events:none;
+      z-index:1;
+    }
+    body:not(.edit-on) .hotspot{ display:none; pointer-events:none; }
+    body:not(.edit-on) .hotkey-label{ display:none; pointer-events:none; }
+
+    .hkTarget{ position:relative; }
+    .hotspot[data-hk="minus"]{ left:6px; right:auto; }
+    .hotkey-label[data-hk="minus"]{ left:34px; right:auto; }
+    .hotkey-label[data-hk="plus"]{ right:34px; left:auto; }
+    .hotspot[data-hk="plus"]{ right:6px; left:auto; }
+
+
+    /* ===== CONF extra area (inside desplegable) ===== */
+    .confExtras{
+      margin-top:10px;
+      padding-top:10px;
+      border-top:1px solid rgba(255,255,255,.10);
+    }
+    .confCard{
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .confCardTitle{
+      font-size:11px;
+      font-weight:1000;
+      color: var(--muted);
+      letter-spacing:.04em;
+      text-transform: uppercase;
+      margin-bottom:8px;
+    }
+    .confBtnRow{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+  
+    .filter-row{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:8px;
+      align-items:center;
+      padding:8px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:8px;
+      margin-bottom:6px;
+      background:rgba(0,0,0,.18);
+    }
+    .filter-name{
+      font-weight:900;
+      font-size:16px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .filter-btn{
+      padding:8px 10px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--txt);
+      border-radius:8px;
+      font-weight:900;
+      cursor:pointer;
+      position:relative;
+      overflow:hidden;
+      min-width:90px;
+      text-align:center;
+    }
+    .filter-details{
+      grid-column: 1 / -1;
+      margin-top:8px;
+      padding:8px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:8px;
+    }
+    .fset-row{
+      display:grid;
+      grid-template-columns: 1fr 110px;
+      gap:10px;
+      align-items:center;
+      padding:8px;
+      border-radius:8px;
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.08);
+      margin-bottom:8px;
+      position:relative;
+      overflow:hidden;
+    }
+    .fset-name{
+      font-weight:900;
+      font-size:12px;
+      color:var(--txt);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .fset-val{
+      text-align:right;
+      font-weight:1000;
+      font-size:12px;
+      color:var(--accent);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .fset-range{
+      grid-column: 1 / -1;
+      height:26px;
+      border-radius:8px;
+      background:rgba(0,0,0,.30);
+      /* IMPORTANTE: dejamos hueco a ambos lados para los "puntitos" (atajos +/-)
+         y así el slider puede ocupar TODO el ancho útil de la caja. */
+      padding:6px 26px;
+      display:flex;
+      align-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .fset-toggle{
+      grid-column: 1 / -1;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px;
+      border-radius:8px;
+      background:rgba(0,0,0,.22);
+      border:1px solid rgba(255,255,255,.10);
+      font-weight:900;
+      position:relative;
+      overflow:hidden;
+
+    }
+    .filter-btn.on{background:rgba(0,255,136,.14); border-color:var(--preview); color:var(--preview);} 
+    .filter-btn.off{background:rgba(255,51,102,.10); border-color:rgba(255,255,255,.12); color:var(--muted);} 
+
+</style>
+</head>
+
+<body>
+
+<header id="topbar">
+  <div class="row hdrTop">
+    <div class="hdrTitle">
+      <div class="dot" id="dot"></div>
+      <div class="hdrTitleText">OBS Multiview</div>
+      <div class="small" id="stateText">desconectado</div>
+
+      <div class="midNav" aria-label="Accesos">
+        <button class="midBtn" id="btnAudio" type="button" title="Abrir panel de Audio">AUDIO</button>
+        <button class="midBtn primary" id="btnConf" type="button" title="Abrir configuración y control">CONF</button>
+      </div>
+
+      <div class="monitors" title="Monitores (sin acción)">
+        <div class="mon"><span class="led" id="ledRec"></span><span class="lbl">REC</span></div>
+        <div class="mon"><span class="led" id="ledStream"></span><span class="lbl">STREAM</span></div>
+      </div>
+      <button class="studioToggle off" id="btnStudio" title="Activar / desactivar Modo Estudio (OBS)">Studio: OFF</button>
+    </div>
+
+    <div class="hdrBtns">
+      <button class="iconBtn" id="btnHdrToggle" title="Plegar / desplegar">
+        <span id="hdrIcon">▾</span>
+      </button>
+      <button class="iconBtn" id="btnFs" title="Pantalla completa">⛶</button>
+    </div>
+  </div>
+
+  <div class="hdrBody">
+    <div class="row">
+      <input id="wsUrl" placeholder="ws://127.0.0.1:4455" />
+      <input id="wsPass" type="password" placeholder="Contraseña (si hay)" />
+      <input id="fps" placeholder="FPS (ej: 2)" style="max-width:90px;min-width:70px;flex:0;" />
+      <button class="primary" id="btnConnect">Conectar</button>
+      <button id="btnStart">Start</button>
+      <button id="btnStop">Stop</button>
+    </div>
+    <div class="small" style="margin-top:6px;">
+      Para TAKE: activa Modo Estudio en OBS. En móvil, 1–3 FPS suele ir ideal.
+    </div>
+  
+    <div class="confExtras" id="confExtras">
+      <div class="confCard">
+        <div class="confCardTitle">Edición & Atajos</div>
+        <div class="confBtnRow">
+          <button class="primary" id="btnEdit" type="button">EDIT: OFF</button>
+          <button id="btnClearHotkeys" type="button" title="Borra todos los atajos guardados">Borrar atajos</button>
+        </div>
+        <div class="small" style="margin-top:6px;opacity:.9">
+          EDIT ON = aparecen puntitos. Click en un puntito → pulsa combinación (Esc cancela, Supr borra).
+        </div>
+      </div>
+
+      <div class="confCard">
+        <div class="confCardTitle">Control (REC / STREAM)</div>
+        <div class="confBtnRow">
+          <button id="btnRecCtl" type="button">REC</button>
+          <button id="btnStreamCtl" type="button">STREAM</button>
+          <button id="btnRefreshCtl" type="button" title="Refrescar estados">Refrescar</button>
+        </div>
+        <div class="small" id="ctlStatus" style="margin-top:6px;opacity:.85">—</div>
+      </div>
+
+      <div class="confCard">
+        <div class="confCardTitle">Filtros (ON/OFF)</div>
+        <div class="row" style="gap:6px;align-items:center">
+          <select id="filterSourceSelect" style="flex:1;min-width:220px">
+            <option value="">(Selecciona fuente)</option>
+          </select>
+          <button id="btnRefreshFilters" type="button" title="Refrescar filtros">Refrescar</button>
+        </div>
+        <div id="filtersList" style="margin-top:10px">
+          <div class="small" style="opacity:.85">Selecciona una fuente para ver sus filtros</div>
+        </div>
+      </div>
+    </div>
+</div>
+</header>
+
+
+<!-- ================= AUDIO PANEL (overlay, sin pestañas) ================= -->
+<div class="overlay" id="audioOverlay" aria-hidden="true">
+  <div class="overlayHead">
+    <div class="overlayTitle">AUDIO (mixer)</div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button id="btnRefreshAudio" class="midBtn" type="button" title="Refrescar audio">Refrescar</button>
+      <button class="overlayClose" id="btnAudioClose" type="button" title="Cerrar">✕</button>
+    </div>
+  </div>
+  <div class="overlayBody">
+    <div id="mixersContainer"></div>
+    <div class="small" style="margin-top:8px;opacity:.85">
+      Tip: en EDIT puedes asignar atajos a MUTE y a VOL-/VOL+ (con las teclas que quieras).
+    </div>
+  </div>
+</div>
+
+
+<main>
+  <div class="layout">
+
+    <aside class="sourcesCol">
+      <div class="sourcesPanel">
+        <div class="sourcesHead">
+          <div class="label">FUENTES</div>
+          <div class="sceneName" id="srcSceneName">—</div>
+        </div>
+        <div class="sourcesList" id="sourcesList">
+          <div class="small" style="padding:6px;opacity:.8">Toca una escena para cargar sus fuentes.</div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="contentCol">
+      <div class="top">
+        <div class="card live" id="pvCard">
+          <img id="pvImg" class="viewer frame preview" alt="Preview" />
+        </div>
+
+        <div class="card live" id="pgCard">
+          <div class="ms" id="pgMs">—</div>
+          <img id="pgImg" class="viewer frame program" alt="Program" />
+        </div>
+
+        <div class="card dock rightDock">
+          <div class="label">TRANSICIÓN</div>
+          <select id="transSel">
+            <option value="">(cargando…)</option>
+          </select>
+
+          <div class="label">DURACIÓN</div>
+          <input id="durMs" inputmode="numeric" placeholder="ms (ej: 300)" />
+
+          <button class="take" id="btnTake">TAKE</button>
+
+          <div class="line"></div>
+          <div class="status" id="dockStatus">—</div>
+        </div>
+      </div>
+
+      <div class="grid" id="sceneGrid"></div>
+</section>
+
+    <!-- ================= BOTONERA INFERIOR NUMÉRICA (FULL WIDTH) =================
+         - Ocupa TODO el ancho (incluye la columna de FUENTES)
+         - Números: 01 02 03 ...
+         - Se pinta en vivo: PREVIEW (verde) / PROGRAM (rojo)
+    -->
+    <div class="bottomBar fullSpan" id="bottomBar">
+      <div class="bottomBarHead">
+        <div class="label">BOTONES</div>
+        <div class="hint" id="bottomHint">—</div>
+      </div>
+      <div class="bottomBtns" id="bottomBtns"></div>
+    </div>
+
+    <div class="log fullSpan" id="log"></div>
+
+  </div>
+</main>
+
+<script>
+(() => {
+
+  // ================= HOTKEYS/EDIT (init temprano para no romper bootstrap) =================
+  const EDIT_STORAGE_KEY = "obsMobileEditMode_v2";
+  const HOTKEYS_STORAGE_KEY = "obsMobileHotkeys_v2";
+  var editMode = false;
+  var hotkeys = {};
+  var hotkeyCapture = null; // {type,id,el}
+
+  (function initHotkeysEarly(){
+    try { editMode = (localStorage.getItem(EDIT_STORAGE_KEY) === "1"); } catch(e) { editMode = false; }
+    try { hotkeys = JSON.parse(localStorage.getItem(HOTKEYS_STORAGE_KEY) || "{}") || {}; }
+    catch(e){ hotkeys = {}; }
+  })();
+
+  const CAPTURE = {
+    TOP_W: 480,
+    TOP_H: 270,
+    TOP_Q: 40,
+
+    TILE_W: 480,
+    TILE_H: 270,
+    TILE_Q: 40,
+
+    TILES_PER_TICK_BASE: 18,
+  };
+
+
+  /* ================= BOTONERA INFERIOR: CONFIG RÁPIDA =================
+     Si tus botones físicos envían TECLAS, aquí los mapeas a escenas.
+
+     - KEY_BINDINGS: lista de teclas por índice de escena (0=primera escena, 1=segunda…).
+       Puedes usar:
+       - '1','2'...,'0'
+       - 'F1'...'F12'
+       - 'A','B'... (letras)
+       - 'SPACE','ENTER','ESC'
+       IMPORTANTE: esto NO intercepta teclas si estás escribiendo en un input.
+
+     - BOTTOM_MAX: 0 = mostrar TODAS las escenas en la botonera.
+       Si quieres que coincida con, por ejemplo, 12 botones físicos, pon 12.
+
+     - CTRL_FOR_PROGRAM_IN_STUDIO:
+       En Modo Estudio, por defecto los botones mandan a PREVIEW (como tocar miniatura).
+       Si pones CTRL_FOR_PROGRAM_IN_STUDIO = true, entonces Ctrl+Tecla forzará Program
+       (útil si tu hardware tiene un "modificador"). OJO: esto salta el flujo típico de TAKE.
+  */
+  const BOTTOM_MAX = 0; // 0 = todas
+  const CTRL_FOR_PROGRAM_IN_STUDIO = false;
+
+  // Atajo para TAKE (recomendado: SPACE, ENTER, F12...)
+  const TAKE_HOTKEY = 'SPACE';
+
+const KEY_BINDINGS = [
+    '1','2','3','4','5','6','7','8','9','0',
+    'F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12',
+    'Q','W','E','R','T','Y','U','I','O','P',
+    'A','S','D','F','G','H','J','K','L',
+  ];
+
+  const el = {
+    dot: document.getElementById('dot'),
+    stateText: document.getElementById('stateText'),
+    wsUrl: document.getElementById('wsUrl'),
+    wsPass: document.getElementById('wsPass'),
+    fps: document.getElementById('fps'),
+    btnConnect: document.getElementById('btnConnect'),
+    btnStart: document.getElementById('btnStart'),
+    btnStop: document.getElementById('btnStop'),
+
+    btnHdrToggle: document.getElementById('btnHdrToggle'),
+    btnFs: document.getElementById('btnFs'),
+    header: document.getElementById('topbar'),
+    hdrIcon: document.getElementById('hdrIcon'),
+
+    pvImg: document.getElementById('pvImg'),
+    pgImg: document.getElementById('pgImg'),
+    pgMs: document.getElementById('pgMs'),
+
+    transSel: document.getElementById('transSel'),
+    durMs: document.getElementById('durMs'),
+    btnTake: document.getElementById('btnTake'),
+    dockStatus: document.getElementById('dockStatus'),
+
+    grid: document.getElementById('sceneGrid'),
+    bottomBar: document.getElementById('bottomBar'),
+    bottomBtns: document.getElementById('bottomBtns'),
+    bottomHint: document.getElementById('bottomHint'),
+    log: document.getElementById('log'),
+
+    ledRec: document.getElementById('ledRec'),
+    ledStream: document.getElementById('ledStream'),
+    btnStudio: document.getElementById('btnStudio'),
+    btnAudio: document.getElementById('btnAudio'),
+    btnConf: document.getElementById('btnConf'),
+    audioOverlay: document.getElementById('audioOverlay'),
+    btnAudioClose: document.getElementById('btnAudioClose'),
+    btnRefreshAudio: document.getElementById('btnRefreshAudio'),
+    mixersContainer: document.getElementById('mixersContainer'),
+    btnEdit: document.getElementById('btnEdit'),
+    btnClearHotkeys: document.getElementById('btnClearHotkeys'),
+    btnRecCtl: document.getElementById('btnRecCtl'),
+    btnStreamCtl: document.getElementById('btnStreamCtl'),
+    btnRefreshCtl: document.getElementById('btnRefreshCtl'),
+    ctlStatus: document.getElementById('ctlStatus'),
+    filterSourceSelect: document.getElementById('filterSourceSelect'),
+    btnRefreshFilters: document.getElementById('btnRefreshFilters'),
+    filtersList: document.getElementById('filtersList'),
+  };
+
+  let selectedSceneName = "";
+  let selectedSceneItems = [];
+
+  el.sourcesList = document.getElementById('sourcesList');
+  el.srcSceneName = document.getElementById('srcSceneName');
+
+  function renderSourcesColumn(){
+    if(!el.sourcesList) return;
+    el.sourcesList.innerHTML = "";
+    if(el.srcSceneName) el.srcSceneName.textContent = selectedSceneName || "—";
+
+    if(!selectedSceneName){
+      const d = document.createElement("div");
+      d.className = "small";
+      d.style.padding = "6px";
+      d.style.opacity = ".8";
+      d.textContent = "Toca una escena para cargar sus fuentes.";
+      el.sourcesList.appendChild(d);
+      return;
+    }
+
+    if(!selectedSceneItems || selectedSceneItems.length === 0){
+      const d = document.createElement("div");
+      d.className = "small";
+      d.style.padding = "6px";
+      d.style.opacity = ".8";
+      d.textContent = "Esta escena no tiene fuentes (o no se pudieron leer).";
+      el.sourcesList.appendChild(d);
+      return;
+    }
+
+    selectedSceneItems.forEach(it => {
+      const b = document.createElement("button");
+      b.className = "srcBtn " + (it.enabled ? "on" : "off");
+      b.type = "button";
+      b.dataset.source = it.sourceName;
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = it.sourceName;
+
+      const st = document.createElement("div");
+      st.className = "state";
+      st.textContent = it.enabled ? "ON" : "OFF";
+
+      b.appendChild(name);
+      b.appendChild(st);
+
+      b.addEventListener("click", async () => {
+        await toggleSceneItem(selectedSceneName, it.sceneItemId, !it.enabled);
+      });
+
+      // Hotkey badge (EDIT)
+      applyHotkeyBadge(b, "Source", it.sourceName);
+
+      el.sourcesList.appendChild(b);
+    });
+  }
+
+  async function loadSceneItemsFor(sceneName){
+    selectedSceneName = sceneName || "";
+    selectedSceneItems = [];
+    renderSourcesColumn();
+
+    if(!sceneName || !ws) return;
+
+    try{
+      const data = await request("GetSceneItemList", { sceneName });
+      const items = (data?.sceneItems || []).map(it => ({
+        sceneItemId: it.sceneItemId,
+        sourceName: it.sourceName,
+        enabled: !!it.sceneItemEnabled
+      }));
+
+      items.sort((a,b) => (a.sourceName||"").localeCompare((b.sourceName||""), "es", {sensitivity:"base"}));
+      selectedSceneItems = items;
+      renderSourcesColumn();
+    }catch(err){
+      log("⚠️ No pude leer fuentes: " + (err.message || err));
+      selectedSceneItems = [];
+      renderSourcesColumn();
+    }
+  }
+
+  async function toggleSceneItem(sceneName, sceneItemId, nextEnabled){
+    if(!ws || !sceneName) return;
+
+    try{
+      await request("SetSceneItemEnabled", {
+        sceneName,
+        sceneItemId,
+        sceneItemEnabled: !!nextEnabled
+      });
+
+      const it = selectedSceneItems.find(x => x.sceneItemId === sceneItemId);
+      if(it) it.enabled = !!nextEnabled;
+
+      renderSourcesColumn();
+      log(`Fuente → ${nextEnabled ? "ON" : "OFF"} (escena "${sceneName}")`);
+    }catch(err){
+      log("❌ Error fuente: " + (err.message || err));
+    }
+  }
+
+  let studioEnabled = true;
+
+  function paintStudioBtn(){
+    if(!el.btnStudio) return;
+    el.btnStudio.classList.toggle('on', !!studioEnabled);
+    el.btnStudio.classList.toggle('off', !studioEnabled);
+    el.btnStudio.textContent = `Studio: ${studioEnabled ? "ON" : "OFF"}`;
+    if(el.btnTake){
+      el.btnTake.disabled = !studioEnabled;
+      el.btnTake.style.opacity = studioEnabled ? "1" : ".45";
+      el.btnTake.title = studioEnabled ? "TAKE" : "TAKE requiere Modo Estudio";
+    }
+  }
+
+  function setLed(elLed, on, blink){
+    if(!elLed) return;
+    elLed.classList.toggle('on', !!on);
+    elLed.classList.toggle('blink', !!blink);
+  }
+
+  async function refreshRecStream(){
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
+    try{
+      const r = await request("GetRecordStatus");
+      setLed(el.ledRec, !!r.outputActive, !!r.outputActive);
+    }catch(e){}
+    try{
+      const s = await request("GetStreamStatus");
+      setLed(el.ledStream, !!s.outputActive, !!s.outputActive);
+    }catch(e){}
+  }
+
+  async function toggleStudioMode(){
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
+    try{
+      studioEnabled = !studioEnabled;
+      await request("SetStudioModeEnabled", { studioModeEnabled: !!studioEnabled });
+      paintStudioBtn();
+      setDock(studioEnabled ? "Modo Estudio: ON ✅" : "Modo Estudio: OFF ✅");
+      await syncCurrentScenes();
+      applyHighlights();
+    }catch(e){
+      studioEnabled = !studioEnabled;
+      paintStudioBtn();
+      log("❌ No pude cambiar Modo Estudio: " + (e.message||e));
+    }
+  }
+
+  let lastPreviewPollTs = 0;
+  let lastTickErrTs = 0;
+  let lastTickErrMsg = "";
+
+  async function syncCurrentScenes(){
+    try{
+      const p = await request("GetCurrentPreviewScene");
+      previewScene = p.currentPreviewSceneName;
+    }catch(e){}
+    try{
+      const g = await request("GetCurrentProgramScene");
+      programScene = g.currentProgramSceneName;
+
+      if(studioEnabled){
+        const now = Date.now();
+        if(now - lastPreviewPollTs > 800){
+          try{
+            const p = await request("GetCurrentPreviewScene");
+            if(p?.currentPreviewSceneName) previewScene = p.currentPreviewSceneName;
+          }catch(_e){}
+          lastPreviewPollTs = now;
+        }
+      }else{
+        previewScene = programScene;
+      }
+      if(!studioEnabled){ previewScene = programScene; }
+    }catch(e){}
+    if(!studioEnabled){
+      previewScene = programScene;
+    }
+    applyHighlights();
+    const active = studioEnabled ? (previewScene || programScene) : programScene;
+    if(active) loadSceneItemsFor(active);
+  }
+
+  function log(msg){
+    const t = new Date().toLocaleTimeString('es-ES');
+    const d = document.createElement('div');
+    d.textContent = `[${t}] ${msg}`;
+    el.log.appendChild(d);
+    el.log.scrollTop = el.log.scrollHeight;
+  }
+  function setState(kind, text){
+    el.dot.className = 'dot ' + (kind || '');
+    el.stateText.textContent = text;
+  }
+  function setDock(msg){ el.dockStatus.textContent = msg; }
+
+  function setHeaderCollapsed(collapsed){
+    if(!el.header) return;
+    el.header.classList.toggle('collapsed', !!collapsed);
+    if(el.hdrIcon) el.hdrIcon.textContent = collapsed ? '▸' : '▾';
+    localStorage.setItem('mv_mobile_hdrCollapsed', collapsed ? '1' : '0');
+  }
+  function toggleHeader(){
+    const collapsed = el.header?.classList.contains('collapsed');
+    setHeaderCollapsed(!collapsed);
+  }
+  async function toggleFullscreen(){
+    try{
+      if(!document.fullscreenElement){
+        await document.documentElement.requestFullscreen?.();
+      }else{
+        await document.exitFullscreen?.();
+      }
+    }catch(e){
+      log('❌ Pantalla completa: ' + (e?.message || e));
+    }
+  }
+
+  function load(){
+    el.wsUrl.value = localStorage.getItem('mv_mobile_wsUrl') || 'ws://127.0.0.1:4455';
+    el.wsPass.value = localStorage.getItem('mv_mobile_wsPass') || '';
+    el.fps.value = localStorage.getItem('mv_mobile_fps') || '2';
+    el.durMs.value = localStorage.getItem('mv_mobile_durMs') || '300';
+    setHeaderCollapsed((localStorage.getItem('mv_mobile_hdrCollapsed')||'0')==='1');
+  }
+  function save(){
+    localStorage.setItem('mv_mobile_wsUrl', el.wsUrl.value.trim());
+    localStorage.setItem('mv_mobile_wsPass', el.wsPass.value);
+    localStorage.setItem('mv_mobile_fps', el.fps.value.trim());
+    localStorage.setItem('mv_mobile_durMs', el.durMs.value.trim());
+  }
+
+  let ws=null, msgId=1, timer=null;
+  const pending=new Map();
+  let _ctlTick=0;
+
+  function request(type, data={}){
+    return new Promise((resolve,reject)=>{
+      if(!ws || ws.readyState !== WebSocket.OPEN){
+        reject(new Error("No conectado"));
+        return;
+      }
+      const id=String(msgId++);
+      pending.set(id,{resolve,reject});
+      ws.send(JSON.stringify({op:6,d:{requestType:type,requestId:id,requestData:data}}));
+      setTimeout(()=>{ if(pending.has(id)){ pending.delete(id); reject(new Error("Timeout")); } }, 7000);
+    });
+  }
+
+  async function sha256b64(str){
+    const buf=new TextEncoder().encode(str);
+    const hash=await crypto.subtle.digest('SHA-256', buf);
+    return btoa(String.fromCharCode(...new Uint8Array(hash)));
+  }
+
+  let previewScene = "";
+  let programScene = "";
+  let scenes = [];
+  const tileMap = new Map();
+
+  /* ================= BOTONERA INFERIOR: UTILIDADES ================= */
+  function normKey(k){
+    return String(k || '').trim().toUpperCase();
+  }
+  function eventToKey(ev){
+    // Normaliza teclas comunes
+    const k = (ev.key || '').toUpperCase();
+    if(k === ' ') return 'SPACE';
+    if(k === 'ESCAPE') return 'ESC';
+    if(k === 'RETURN') return 'ENTER';
+    return k;
+  }
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
+  }
+
+  function applyBottomWrapSetting(){
+    // NO-OP: ahora la botonera usa CSS GRID con --bb-cols (botones por línea)
+  }
+  function renderBottomButtons(){
+    if(!el.bottomBtns) return;
+
+    applyBottomWrapSetting();
+    el.bottomBtns.innerHTML = "";
+
+    const max = (typeof BOTTOM_MAX === "number" && BOTTOM_MAX > 0) ? BOTTOM_MAX : (scenes?.length || 0);
+    const list = (scenes || []).slice(0, max);
+
+    if(el.bottomHint){
+      el.bottomHint.textContent = list.length ? `Botones: ${String(list.length)}` : `Sin escenas todavía`;
+    }
+
+    list.forEach((sceneName, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "bbtn";
+      b.dataset.scene = sceneName;
+
+      // SOLO NÚMERO (01, 02, 03...) — sin nombre de escena
+      b.textContent = String(i + 1).padStart(2, "0");
+
+      b.addEventListener("click", () => selectScene(sceneName, false));
+      el.bottomBtns.appendChild(b);
+    });
+
+    applyHighlights(); // pinta estados también en la botonera
+  }
+
+  async function selectScene(sceneName, forceProgram){
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
+
+    try{
+      if(studioEnabled && !forceProgram){
+        await request("SetCurrentPreviewScene", { sceneName });
+        setDock(`Preview → ${sceneName}`);
+      }else{
+        await request("SetCurrentProgramScene", { sceneName });
+        setDock(`Program → ${sceneName}`);
+      }
+
+      loadSceneItemsFor(sceneName);
+      await syncCurrentScenes();
+    }catch(e){
+      setDock(`No pude seleccionar escena: ${e.message}`);
+      log(`❌ Select scene: ${e.message}`);
+    }
+  }
+
+  let transitions = [];
+  let currentTransition = "";
+
+  function clearTiles(){ tileMap.clear(); el.grid.innerHTML=""; }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+
+  function makeTile(sceneName){
+    const card = document.createElement('div');
+    card.className = 'card tile';
+    card.dataset.scene = sceneName;
+
+    const img = document.createElement('img');
+    img.className = 'viewer frame';
+    img.alt = sceneName;
+
+    const badge = document.createElement('div');
+    badge.className = 'badge';
+    badge.textContent = sceneName;
+
+    card.appendChild(img);
+    card.appendChild(badge);
+
+    card.addEventListener('click', async () => { selectScene(sceneName, false); });
+
+    // Hotkey badge (EDIT)
+    applyHotkeyBadge(card, "Scene", sceneName);
+
+    el.grid.appendChild(card);
+    tileMap.set(sceneName, { img });
+  }
+
+  function applyHighlights(){
+    for(const [name, t] of tileMap.entries()){
+      t.img.classList.toggle('preview', studioEnabled && name === previewScene);
+      t.img.classList.toggle('program', name === programScene);
+    }
+
+    // Pinta también la BOTONERA INFERIOR
+    if(el.bottomBtns){
+      const btns = el.bottomBtns.querySelectorAll('.bbtn');
+      btns.forEach(b => {
+        const n = b.dataset.scene || "";
+        b.classList.toggle('preview', studioEnabled && n === previewScene);
+        b.classList.toggle('program', n === programScene);
+      });
+    }
+  }
+
+  function fillTransitions(){
+    el.transSel.innerHTML = transitions.length
+      ? transitions.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+      : `<option value="">(sin transiciones)</option>`;
+    if(currentTransition) el.transSel.value = currentTransition;
+  }
+
+  async function connect(){
+    save();
+    const url=el.wsUrl.value.trim();
+    const pass=el.wsPass.value;
+    if(!url) return log("Pon ws://...");
+
+    setState('', 'conectando…');
+    log(`Conectando a ${url}`);
+    ws = new WebSocket(url);
+
+    ws.onopen = () => log("Socket abierto. Esperando Hello…");
+    ws.onclose = () => { setState('bad','desconectado'); log("Socket cerrado"); ws=null; stop(); };
+    ws.onerror = () => { setState('bad','error'); log("Socket error"); };
+
+    ws.onmessage = async (evt) => {
+      const msg = JSON.parse(evt.data);
+
+      if(msg.op===0){
+        const authRequired=!!msg.d?.authentication;
+        if(authRequired && pass){
+          const {challenge,salt}=msg.d.authentication;
+          const secret=await sha256b64(pass + salt);
+          const auth=await sha256b64(secret + challenge);
+          ws.send(JSON.stringify({op:1,d:{rpcVersion:1,authentication:auth}}));
+        }else{
+          ws.send(JSON.stringify({op:1,d:{rpcVersion:1}}));
+        }
+        return;
+      }
+
+      if(msg.op===2){
+        setState('ok','conectado');
+        log("Identificado OK");
+        await bootstrap();
+        await refreshRecordStreamStatus();
+        await refreshControlSources();
+        return;
+      }
+
+      if(msg.op===7){
+        const id=msg.d.requestId;
+        const status=msg.d.requestStatus;
+        const data=msg.d.responseData;
+        if(pending.has(id)){
+          const {resolve,reject}=pending.get(id);
+          pending.delete(id);
+          status.result ? resolve(data) : reject(new Error(status.comment || "Request failed"));
+        }
+        return;
+      }
+
+      if(msg.op===5){
+        const evType = msg.d.eventType;
+
+        if(evType === "CurrentPreviewSceneChanged"){
+          previewScene = msg.d.eventData.sceneName;
+          if(studioEnabled) loadSceneItemsFor(previewScene);
+          applyHighlights();
+        }
+        if(evType === "CurrentProgramSceneChanged"){
+          programScene = msg.d.eventData.sceneName;
+          if(!studioEnabled){ previewScene = programScene; }
+          applyHighlights();
+          if(!studioEnabled) loadSceneItemsFor(programScene);
+        }
+        if(evType === "CurrentSceneTransitionChanged"){
+          currentTransition = msg.d.eventData.transitionName;
+          if(el.transSel.value !== currentTransition) el.transSel.value = currentTransition;
+          setDock(`Transición actual: ${currentTransition}`);
+        }
+        if(evType === "SceneListChanged"){
+          await refreshSceneList();
+        }
+
+        if(evType === "RecordStateChanged"){
+          const a = !!msg.d.eventData.outputActive;
+          setLed(el.ledRec, a, a);
+        }
+        if(evType === "StreamStateChanged"){
+          const a = !!msg.d.eventData.outputActive;
+          setLed(el.ledStream, a, a);
+        }
+        if(evType === "StudioModeStateChanged"){
+          studioEnabled = !!msg.d.eventData.studioModeEnabled;
+          paintStudioBtn();
+          await syncCurrentScenes();
+        }
+      }
+    };
+  }
+
+  async function bootstrap(){
+    try{
+      const sm = await request("GetStudioModeEnabled");
+      studioEnabled = !!sm.studioModeEnabled;
+      paintStudioBtn();
+      setDock(studioEnabled ? "Modo Estudio: ON ✅" : "Modo Estudio: OFF ✅ (selección directa)");
+
+      const g = await request("GetCurrentProgramScene");
+      programScene = g.currentProgramSceneName;
+
+      if(studioEnabled){
+        try{
+          const p = await request("GetCurrentPreviewScene");
+          previewScene = p.currentPreviewSceneName;
+        }catch(_e){
+          previewScene = programScene;
+        }
+      }else{
+        previewScene = programScene;
+      }
+
+      const tl = await request("GetSceneTransitionList");
+      transitions = (tl.transitions || []).map(t => t.transitionName);
+      currentTransition = tl.currentSceneTransitionName || "";
+      fillTransitions();
+      if(typeof tl.currentSceneTransitionDuration === "number"){
+        el.durMs.value = String(tl.currentSceneTransitionDuration);
+      }
+
+      await refreshSceneList();
+      await syncCurrentScenes();
+      await refreshRecStream();
+      await tickOnce();
+
+      log("Bootstrap OK");
+    }catch(e){
+      log("❌ Bootstrap falló: " + (e?.message || e));
+      setDock("Bootstrap falló. Revisa puerto/clave.");
+    }
+  }
+
+  async function refreshSceneList(){
+    try{
+      const s = await request("GetSceneList");
+      scenes = (s.scenes || []).map((x,i) => ({ name: x.sceneName, i }));
+
+      scenes.sort((a,b)=>{
+        const na = (a.name.match(/^\s*(\d{1,4})\b/)||[])[1];
+        const nb = (b.name.match(/^\s*(\d{1,4})\b/)||[])[1];
+        const ia = na ? parseInt(na,10) : Number.POSITIVE_INFINITY;
+        const ib = nb ? parseInt(nb,10) : Number.POSITIVE_INFINITY;
+        if(ia !== ib) return ia - ib;
+        return a.i - b.i;
+      });
+      scenes = scenes.map(x => x.name);
+
+      clearTiles();
+      for(const name of scenes) makeTile(name);
+      renderBottomButtons();
+
+      applyHighlights();
+      log(`Escenas: ${scenes.length}`);
+    }catch(e){
+      log("❌ GetSceneList: " + e.message);
+    }
+  }
+
+  async function shot(sourceName, w, h, quality){
+    return await request("GetSourceScreenshot", {
+      sourceName,
+      imageFormat: "jpeg",
+      imageWidth: w,
+      imageHeight: h,
+      imageCompressionQuality: quality
+    });
+  }
+
+  const TILES_PER_TICK = 2;
+  let tileRR = 0;
+
+  async function tickTiles(w, h, q){
+    if(!scenes || scenes.length === 0) return;
+    const n = scenes.length;
+
+    for(let k=0; k<Math.min(TILES_PER_TICK, n); k++){
+      const name = scenes[(tileRR + k) % n];
+      const t = tileMap.get(name);
+      if(!t || !t.img) continue;
+
+      try{
+        const r = await shot(name, w, h, q);
+        if(r && r.imageData){
+          t.img.src = r.imageData;
+        }
+      }catch(_e){}
+    }
+    tileRR = (tileRR + TILES_PER_TICK) % n;
+  }
+
+  async function tickOnce(){
+    if(!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    // Monitores REC/STREAM (ligero): actualiza cada ~10 ticks
+    _ctlTick = (_ctlTick + 1) % 1000000;
+    if((_ctlTick % 10) === 0) refreshRecordStreamStatus();
+
+    const fps = Math.max(1, Math.min(30, parseInt(el.fps.value || "2", 10)));
+    const topW = CAPTURE.TOP_W, topH = CAPTURE.TOP_H, qTop = CAPTURE.TOP_Q;
+    const tileW = CAPTURE.TILE_W, tileH = CAPTURE.TILE_H, qTile = CAPTURE.TILE_Q;
+
+    try{
+      const g = await request("GetCurrentProgramScene");
+      programScene = g.currentProgramSceneName;
+
+      if(studioEnabled){
+        if(!previewScene) previewScene = programScene;
+      }else{
+        previewScene = programScene;
+      }
+
+      if(studioEnabled){
+        const now = Date.now();
+        if((!previewScene || previewScene === "") && (now - lastPreviewPollTs > 1500)){
+          try{
+            const p = await request("GetCurrentPreviewScene");
+            previewScene = p.currentPreviewSceneName || previewScene;
+          }catch(_e){}
+          lastPreviewPollTs = now;
+        }
+      }
+
+      const t0 = performance.now();
+
+      let pv, pg;
+      if(studioEnabled){
+        [pv, pg] = await Promise.all([
+          shot(previewScene, topW, topH, qTop),
+          shot(programScene, topW, topH, qTop),
+        ]);
+      }else{
+        pg = await shot(programScene, topW, topH, qTop);
+        pv = pg;
+      }
+
+      el.pvImg.src = pv.imageData;
+      el.pgImg.src = pg.imageData;
+
+      const msTop = Math.round(performance.now()-t0);
+      if(el.pgMs) el.pgMs.textContent = `${msTop} ms`;
+
+      tickOnce._mon = (tickOnce._mon || 0) + 1;
+      if(tickOnce._mon % Math.max(1, Math.round(fps*2)) === 0){
+        refreshRecStream();
+      }
+
+      await tickTiles(tileW, tileH, qTile);
+      applyHighlights();
+
+    }catch(e){
+      const msg = (e && (e.message || e)) ? String(e.message || e) : "Request failed";
+      const now = Date.now();
+      if(now - lastTickErrTs > 2000 || msg !== lastTickErrMsg){
+        log("⚠️ Tick: " + msg);
+        lastTickErrTs = now;
+        lastTickErrMsg = msg;
+      }
+    }
+  }
+
+  async function setTransition(name){
+    try{
+      await request("SetCurrentSceneTransition", { transitionName: name });
+      currentTransition = name;
+      setDock(`Transición → ${name}`);
+    }catch(e){
+      setDock(`No pude cambiar transición: ${e.message}`);
+      log(`❌ SetCurrentSceneTransition: ${e.message}`);
+    }
+  }
+
+  async function setDuration(ms){
+    const n = Math.max(50, Math.min(60000, (parseInt(ms || "300", 10) || 300)));
+    try{
+      await request("SetCurrentSceneTransitionDuration", { transitionDuration: n });
+      setDock(`Duración → ${n} ms`);
+    }catch(e){
+      setDock(`No pude cambiar duración: ${e.message}`);
+      log(`❌ SetCurrentSceneTransitionDuration: ${e.message}`);
+    }
+  }
+
+  async function take(){
+    save();
+    const tr = el.transSel.value;
+    if(tr && tr !== currentTransition) await setTransition(tr);
+    await setDuration(el.durMs.value);
+
+    try{
+      await request("TriggerStudioModeTransition");
+      setDock(`TAKE ✅ (${el.transSel.value || currentTransition})`);
+    }catch(e){
+      setDock(`TAKE ❌ ${e.message} (¿Modo Estudio OFF?)`);
+      log(`❌ TriggerStudioModeTransition: ${e.message}`);
+    }
+  }
+
+  function start(){
+    if(!ws || ws.readyState!==WebSocket.OPEN){
+      log("No conectado. Dale a Conectar primero.");
+      return;
+    }
+    const fps = Math.max(1, Math.min(30, parseInt(el.fps.value || "2", 10)));
+    const interval = Math.round(1000 / fps);
+    stop();
+    log(`Start: ${fps} FPS (${interval} ms)`);
+    timer = setInterval(tickOnce, interval);
+  }
+
+  function stop(){
+    if(timer){ clearInterval(timer); timer=null; }
+    log("Stop");
+  }
+
+
+  /* ================= AUDIO (mixer) ================= */
+  let audioInputs = []; // {name}
+
+  async function refreshAudio(){
+    if(!ws){ log("No conectado."); return; }
+    try{
+      const data = await request("GetInputList");
+  const filterSettingsCache = new Map();
+      const inputs = data?.inputs || [];
+      audioInputs = [];
+
+      for(const inp of inputs){
+        const name = inp.inputName;
+        if(!name) continue;
+        try{
+          const volData = await request("GetInputVolume", { inputName: name });
+          const muteData = await request("GetInputMute", { inputName: name });
+
+          audioInputs.push({
+            inputName: name,
+            inputVolumeDb: (volData?.inputVolumeDb ?? 0),
+            inputMuted: (muteData?.inputMuted ?? false)
+          });
+        }catch(_e){}
+      }
+
+      renderMixers();
+      log(`Audio: ${audioInputs.length} inputs.`);
+    }catch(e){
+      log("❌ Audio: " + (e?.message || e));
+    }
+  }
+
+  function renderMixers(){
+    if(!el.mixersContainer) return;
+    el.mixersContainer.innerHTML = "";
+
+    if(audioInputs.length === 0){
+      const d = document.createElement("div");
+      d.className = "small";
+      d.style.opacity = ".85";
+      d.textContent = "No hay entradas de audio (o no se pudieron leer).";
+      el.mixersContainer.appendChild(d);
+      return;
+    }
+
+    audioInputs.forEach(input => {
+      const div = document.createElement("div");
+      div.className = "mixer";
+      div.dataset.input = input.inputName;
+
+      const name = document.createElement("div");
+      name.className = "mixer-name";
+      name.textContent = input.inputName;
+
+      const vol = document.createElement("div");
+      vol.className = "mixer-vol";
+      vol.textContent = input.inputVolumeDb.toFixed(1) + " dB";
+
+      const mute = document.createElement("button");
+      mute.className = "mixer-mute";
+      mute.type = "button";
+      mute.textContent = input.inputMuted ? "UNMUTE" : "MUTE";
+      if(input.inputMuted) mute.classList.add("muted");
+      mute.addEventListener("click", () => toggleMute(input.inputName));
+
+      // ===== FADER con hotspots laterales (VOL- / VOL+) =====
+      const faderContainer = document.createElement("div");
+      faderContainer.className = "fader-container";
+
+      const leftSide = document.createElement("div");
+      leftSide.className = "hotkey-side";
+
+      const faderWrap = document.createElement("div");
+      faderWrap.className = "fader-wrap";
+
+      const fill = document.createElement("div");
+      fill.className = "fader-fill";
+
+      const thumb = document.createElement("div");
+      thumb.className = "fader-thumb";
+
+      faderWrap.appendChild(fill);
+      faderWrap.appendChild(thumb);
+
+      const rightSide = document.createElement("div");
+      rightSide.className = "hotkey-side";
+
+      faderContainer.appendChild(leftSide);
+      faderContainer.appendChild(faderWrap);
+      faderContainer.appendChild(rightSide);
+
+      div.appendChild(name);
+      div.appendChild(vol);
+      div.appendChild(mute);
+      div.appendChild(faderContainer);
+
+      // UI inicial
+      updateMixerUIElement(div, input);
+
+      // Drag en faderWrap
+      let dragging = false;
+      const begin = (ev) => { dragging = true; ev.preventDefault(); };
+      const end = () => { dragging = false; };
+
+      faderWrap.addEventListener("mousedown", begin);
+      faderWrap.addEventListener("touchstart", begin, {passive:false});
+
+      const handleMove = (clientX) => {
+        if(!dragging) return;
+        const rect = faderWrap.getBoundingClientRect();
+        let x = clientX - rect.left;
+        x = Math.max(0, Math.min(rect.width, x));
+        const percent = x / rect.width;
+        const db = (percent * 100) - 100; // -100..0
+        setVolume(input.inputName, db);
+      };
+
+      document.addEventListener("mousemove", (ev) => handleMove(ev.clientX));
+      document.addEventListener("touchmove", (ev) => {
+        if(ev.touches && ev.touches.length > 0) handleMove(ev.touches[0].clientX);
+      }, {passive:false});
+      document.addEventListener("mouseup", end);
+      document.addEventListener("touchend", end);
+
+      // Hotkeys badges
+      applyHotkeyBadge(mute, "AudioMute", input.inputName);
+      applyDualHotkeyBadge(
+        faderContainer,
+        "AudioVolDown", input.inputName,
+        "AudioVolUp", input.inputName
+      );
+
+      el.mixersContainer.appendChild(div);
+    });
+
+    refreshAllHotkeyBadges();
+  }
+
+  function updateMixerUI(inputName){
+    const mixer = [...el.mixersContainer.querySelectorAll(".mixer")].find(m => m.dataset.input === inputName);
+    if(!mixer) return;
+    const input = audioInputs.find(a => a.inputName === inputName);
+    if(!input) return;
+    updateMixerUIElement(mixer, input);
+  }
+
+  function updateMixerUIElement(mixerDiv, input){
+    const db = input.inputVolumeDb;
+    const percent = Math.max(0, Math.min(100, (db + 100)));
+
+    const fill = mixerDiv.querySelector(".fader-fill");
+    const thumb = mixerDiv.querySelector(".fader-thumb");
+    const vol = mixerDiv.querySelector(".mixer-vol");
+    const mute = mixerDiv.querySelector(".mixer-mute");
+
+    if(fill) fill.style.width = percent + "%";
+    if(thumb) thumb.style.left = `calc(${percent}% - 10px)`;
+    if(vol) vol.textContent = db.toFixed(1) + " dB";
+
+    if(mute){
+      mute.classList.toggle("muted", !!input.inputMuted);
+      mute.textContent = input.inputMuted ? "UNMUTE" : "MUTE";
+    }
+  }
+
+  function clampDb(db){ return Math.max(-100, Math.min(0, db)); }
+
+  async function setVolume(inputName, db){
+    const input = audioInputs.find(a => a.inputName === inputName);
+    if(!input) return;
+
+    input.inputVolumeDb = clampDb(db);
+    updateMixerUI(inputName);
+
+    if(!ws) return;
+    try{
+      await request("SetInputVolume", { inputName, inputVolumeDb: input.inputVolumeDb });
+    }catch(e){
+      log("⚠️ Vol: " + (e?.message || e));
+    }
+  }
+
+  async function nudgeVolume(inputName, deltaDb){
+    const input = audioInputs.find(a => a.inputName === inputName);
+    if(!input) return;
+    await setVolume(inputName, input.inputVolumeDb + deltaDb);
+  }
+
+  async function toggleMute(inputName){
+    if(!ws) return;
+    try{
+      const m = await request("GetInputMute", { inputName });
+      const next = !m?.inputMuted;
+      await request("SetInputMute", { inputName, inputMuted: next });
+
+      // sync cache
+      const input = audioInputs.find(a => a.inputName === inputName);
+      if(input) input.inputMuted = next;
+      updateMixerUI(inputName);
+
+      refreshAllHotkeyBadges();
+    }catch(e){
+      log("⚠️ Mute: " + (e?.message || e));
+    }
+  }
+/* ================= CONTROL (REC/STREAM + filtros ON/OFF) ================= */
+  async function refreshRecordStreamStatus(){
+    if(!ws) return;
+    try{
+      const rs = await request("GetRecordStatus");
+      const ss = await request("GetStreamStatus");
+
+      const recOn = !!rs?.outputActive;
+      const streamOn = !!ss?.outputActive;
+
+      el.ledRec?.classList.toggle("on", recOn);
+      el.ledRec?.classList.toggle("blink", recOn);
+
+      el.ledStream?.classList.toggle("on", streamOn);
+      el.ledStream?.classList.toggle("blink", streamOn);
+
+      if(el.btnRecCtl){
+        el.btnRecCtl.classList.toggle("take", recOn);
+        el.btnRecCtl.textContent = recOn ? "REC: ON" : "REC: OFF";
+      }
+      if(el.btnStreamCtl){
+        el.btnStreamCtl.classList.toggle("take", streamOn);
+        el.btnStreamCtl.textContent = streamOn ? "STREAM: ON" : "STREAM: OFF";
+      }
+      if(el.ctlStatus){
+        el.ctlStatus.textContent = `REC ${recOn ? "ON" : "OFF"}  |  STREAM ${streamOn ? "ON" : "OFF"}`;
+      }
+    }catch(e){
+      // silencioso
+    }
+  }
+
+  async function toggleRecord(){
+    if(!ws) return;
+    try{
+      const rs = await request("GetRecordStatus");
+      const on = !!rs?.outputActive;
+      if(on) await request("StopRecord");
+      else await request("StartRecord");
+      await refreshRecordStreamStatus();
+      setDock(`REC → ${on ? "STOP" : "START"}`);
+    }catch(e){
+      log("❌ REC: " + (e?.message || e));
+    }
+  }
+
+  async function toggleStream(){
+    if(!ws) return;
+    try{
+      const ss = await request("GetStreamStatus");
+      const on = !!ss?.outputActive;
+      if(on) await request("StopStream");
+      else await request("StartStream");
+      await refreshRecordStreamStatus();
+      setDock(`STREAM → ${on ? "STOP" : "START"}`);
+    }catch(e){
+      log("❌ STREAM: " + (e?.message || e));
+    }
+  }
+
+  async function refreshControlSources(){
+    if(!ws || !el.filterSourceSelect) return;
+    try{
+      const data = await request("GetInputList");
+      const inputs = (data?.inputs || []).map(x => x.inputName).filter(Boolean);
+
+      const prev = el.filterSourceSelect.value;
+      el.filterSourceSelect.innerHTML = '<option value="">(Selecciona fuente)</option>';
+      inputs.forEach(n => {
+        const opt = document.createElement("option");
+        opt.value = n;
+        opt.textContent = n;
+        el.filterSourceSelect.appendChild(opt);
+      });
+      if(prev && inputs.includes(prev)) el.filterSourceSelect.value = prev;
+    }catch(e){
+      // ok
+    }
+  }
+
+  async function refreshFiltersForSource(sourceName){
+    if(!ws || !el.filtersList) return;
+
+    if(!sourceName){
+      el.filtersList.innerHTML = '<div class="small" style="opacity:.85">Selecciona una fuente para ver sus filtros</div>';
+      return;
+    }
+
+    try{
+      const data = await request("GetSourceFilterList", { inputName: sourceName });
+      const filters = data?.filters || [];
+
+      if(!filters.length){
+        el.filtersList.innerHTML = '<div class="small" style="opacity:.85">Esa fuente no tiene filtros.</div>';
+        refreshAllHotkeyBadges();
+        return;
+      }
+
+      el.filtersList.innerHTML = '';
+      filters.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'filter-row';
+        row.dataset.src = sourceName;
+        row.dataset.filter = f.filterName;
+
+        const name = document.createElement('div');
+        name.className = 'filter-name';
+        name.textContent = f.filterName;
+        name.title = 'Toca para desplegar ajustes (si el filtro los expone).';
+
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn ' + (f.filterEnabled ? 'on' : 'off');
+        btn.type = 'button';
+        btn.textContent = f.filterEnabled ? 'ON' : 'OFF';
+        btn.dataset.src = sourceName;
+        btn.dataset.filter = f.filterName;
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          toggleFilterEnabled(sourceName, f.filterName, null); // null = toggle
+        });
+
+        // Hotkey toggle
+        applyHotkeyBadge(btn, "FilterToggle", `${sourceName}||${f.filterName}`);
+
+        row.appendChild(name);
+        row.appendChild(btn);
+        el.filtersList.appendChild(row);
+
+        row.addEventListener('click', async () => {
+          await toggleFilterDetails(row, sourceName, f.filterName);
+        });
+      });
+
+      refreshAllHotkeyBadges();
+    }catch(e){
+      el.filtersList.innerHTML = '<div class="small" style="opacity:.85">No pude leer filtros.</div>';
+      log("❌ Filtros: " + (e?.message || e));
+    }
+  }
+
+  async function toggleFilterEnabled(sourceName, filterName, force=null){
+    if(!ws) return;
+    try{
+      const data = await request("GetSourceFilter", { inputName: sourceName, filterName });
+      const current = !!data?.filterEnabled;
+      const next = (force === null) ? !current : !!force;
+
+      await request("SetSourceFilterEnabled", { inputName: sourceName, filterName, filterEnabled: next });
+      await refreshFiltersForSource(sourceName);
+      setDock(`Filtro: ${filterName} → ${next ? "ON" : "OFF"}`);
+    }catch(e){
+      log("❌ Toggle filtro: " + (e?.message || e));
+    }
+  }
+
+  async function toggleFilterDetails(row, sourceName, filterName){
+    const existing = row.querySelector(".filter-details");
+    if(existing){ existing.remove(); return; }
+
+    const details = document.createElement("div");
+    details.className = "filter-details";
+    details.innerHTML = '<div class="small" style="padding:10px;opacity:.85">Cargando ajustes…</div>';
+    row.appendChild(details);
+
+    try{
+      const key = `${sourceName}||${filterName}`;
+      let cached = filterSettingsCache.get(key);
+
+      if(!cached){
+        const data = await request("GetSourceFilter", { inputName: sourceName, filterName });
+        cached = {
+          filterKind: data?.filterKind || "",
+          settings: data?.filterSettings || {}
+        };
+        filterSettingsCache.set(key, cached);
+      }
+      renderFilterSettings(details, sourceName, filterName, cached.settings);
+    }catch(e){
+      details.innerHTML = `<div class="small" style="padding:10px;opacity:.85">No se pudieron leer ajustes (${e?.message || e})</div>`;
+    }
+  }
+
+  function guessRangeForNumber(key, v){
+    const k = String(key || "").toLowerCase();
+    const val = Number(v);
+
+    if(k.includes("opacity") || k.includes("alpha")){
+      return {min:0, max:1, step:0.01};
+    }
+    if(k.includes("gamma")){
+      return {min:0.1, max:3, step:0.01};
+    }
+    if(k.includes("hue")){
+      return {min:-180, max:180, step:1};
+    }
+    if(k.includes("saturation") || k.includes("contrast") || k.includes("brightness")){
+      return {min:-1, max:1, step:0.01};
+    }
+    if(Math.abs(val) <= 1){
+      return {min:-1, max:1, step:0.01};
+    }
+    if(Math.abs(val) <= 10){
+      return {min:-10, max:10, step:0.1};
+    }
+    if(Math.abs(val) <= 100){
+      return {min:-100, max:100, step:1};
+    }
+    return {min:val-100, max:val+100, step:1};
+  }
+
+  function renderFilterSettings(container, sourceName, filterName, settings){
+    container.innerHTML = "";
+
+    const keys = Object.keys(settings || {});
+    if(keys.length === 0){
+      container.innerHTML = '<div class="small" style="padding:10px;opacity:.85">Este filtro no expone sliders editables.</div>';
+      return;
+    }
+
+    const preferred = ["brightness","contrast","gamma","saturation","hue","opacity","alpha","gain","color","scale","zoom"];
+    keys.sort((a,b)=>{
+      const ia = preferred.findIndex(p => String(a).toLowerCase().includes(p));
+      const ib = preferred.findIndex(p => String(b).toLowerCase().includes(p));
+      if(ia !== -1 || ib !== -1){
+        if(ia === -1) return 1;
+        if(ib === -1) return -1;
+        return ia - ib;
+      }
+      return String(a).localeCompare(String(b), "es", {sensitivity:"base"});
+    });
+
+    keys.forEach(k => {
+      const v = settings[k];
+
+      // number => slider
+      if(typeof v === "number" && Number.isFinite(v)){
+        const row = document.createElement("div");
+        row.className = "fset-row";
+
+        const left = document.createElement("div");
+        left.className = "fset-name";
+        left.textContent = k;
+
+        const right = document.createElement("div");
+        right.className = "fset-val";
+        right.textContent = String(v);
+
+        const rangeWrap = document.createElement("div");
+        rangeWrap.className = "fset-range";
+
+        ["pointerdown","mousedown","touchstart","click"].forEach(evt => {
+          rangeWrap.addEventListener(evt, (ev) => ev.stopPropagation(), {passive:true});
+        });
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        const {min, max, step} = guessRangeForNumber(k, v);
+        slider.min = String(min);
+        slider.max = String(max);
+        slider.step = String(step);
+        slider.value = String(v);
+
+        ["pointerdown","mousedown","touchstart","click"].forEach(evt => {
+          slider.addEventListener(evt, (ev) => ev.stopPropagation(), {passive:true});
+        });
+
+        slider.addEventListener("input", () => {
+          const num = Number(slider.value);
+          right.textContent = String(step < 1 ? num.toFixed(2) : num.toFixed(0));
+        });
+
+        let t = null;
+        slider.addEventListener("change", () => {
+          if(t) clearTimeout(t);
+          t = setTimeout(() => {
+            setFilterSettingValue(sourceName, filterName, k, Number(slider.value));
+          }, 80);
+        });
+
+        rangeWrap.appendChild(slider);
+        row.appendChild(left);
+        row.appendChild(right);
+        row.appendChild(rangeWrap);
+
+        applyDualHotkeyBadge(
+          rangeWrap,
+          "FilterParamDown", `${sourceName}||${filterName}||${k}`,
+          "FilterParamUp",   `${sourceName}||${filterName}||${k}`
+        );
+
+        container.appendChild(row);
+        return;
+      }
+
+      // boolean => toggle
+      if(typeof v === "boolean"){
+        const tog = document.createElement("div");
+        tog.className = "fset-toggle";
+        const label = document.createElement("div");
+        label.textContent = k;
+        const b = document.createElement("button");
+        b.className = "filter-btn " + (v ? "on" : "off");
+        b.type = "button";
+        b.textContent = v ? "ON" : "OFF";
+        b.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          setFilterSettingValue(sourceName, filterName, k, !v);
+        });
+        tog.appendChild(label);
+        tog.appendChild(b);
+        container.appendChild(tog);
+        return;
+      }
+
+      // string => input (solo visual; edit manual)
+      if(typeof v === "string"){
+        const row = document.createElement("div");
+        row.className = "fset-row";
+
+        const left = document.createElement("div");
+        left.className = "fset-name";
+        left.textContent = k;
+
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.value = v;
+        inp.style.width = "100%";
+        inp.addEventListener("click", (ev)=>ev.stopPropagation());
+        inp.addEventListener("change", ()=> setFilterSettingValue(sourceName, filterName, k, inp.value));
+
+        row.appendChild(left);
+        row.appendChild(inp);
+        container.appendChild(row);
+        return;
+      }
+    });
+  }
+
+  async function setFilterSettingValue(sourceName, filterName, key, value){
+    if(!ws) return;
+    try{
+      const cacheKey = `${sourceName}||${filterName}`;
+      const cached = filterSettingsCache.get(cacheKey) || {settings:{}};
+      const next = {...(cached.settings || {})};
+      next[key] = value;
+
+      await request("SetSourceFilterSettings", { inputName: sourceName, filterName, filterSettings: next });
+
+      // update cache
+      filterSettingsCache.set(cacheKey, { ...(cached||{}), settings: next });
+
+    }catch(e){
+      log("⚠️ Filtro setting: " + (e?.message || e));
+    }
+  }
+
+  async function nudgeFilterParam(actionId, dir){
+    // actionId: src||filter||key
+    const parts = String(actionId || "").split("||");
+    if(parts.length < 3) return;
+    const [srcName, filterName, key] = parts;
+
+    const cacheKey = `${srcName}||${filterName}`;
+    let cached = filterSettingsCache.get(cacheKey);
+    if(!cached){
+      try{
+        const data = await request("GetSourceFilter", { inputName: srcName, filterName });
+        cached = { filterKind: data?.filterKind || "", settings: data?.filterSettings || {} };
+        filterSettingsCache.set(cacheKey, cached);
+      }catch{ return; }
+    }
+
+    const cur = cached?.settings?.[key];
+    if(typeof cur !== "number") return;
+
+    const {step} = guessRangeForNumber(key, cur);
+    const nextVal = Number(cur) + (dir * Number(step || 1));
+    await setFilterSettingValue(srcName, filterName, key, nextVal);
+
+    // Si el slider está visible, actualiza el DOM (best-effort)
+    const row = el.filtersList?.querySelector(`.filter-row[data-src="${cssEscape(srcName)}"][data-filter="${cssEscape(filterName)}"]`);
+    if(row){
+      const det = row.querySelector(".filter-details");
+      if(det){
+        const input = det.querySelector(`input[type="range"][value="${cur}"]`);
+      }
+    }
+  }
+async function refreshControl(){
+    if(!ws){ log("No conectado."); return; }
+    await refreshRecordStreamStatus();
+    await refreshControlSources();
+    await refreshFiltersForSource(el.filterSourceSelect?.value || "");
+    log("Control OK.");
+  }
+
+
+  el.btnConnect.addEventListener('click', connect);
+  el.btnHdrToggle?.addEventListener('click', toggleHeader);
+  el.btnFs?.addEventListener('click', toggleFullscreen);
+  el.btnStart.addEventListener('click', start);
+  el.btnStop.addEventListener('click', stop);
+  el.transSel.addEventListener('change', () => setTransition(el.transSel.value));
+  el.durMs.addEventListener('change', () => setDuration(el.durMs.value));
+  el.btnTake.addEventListener('click', take);
+  el.btnStudio?.addEventListener('click', toggleStudioMode);
+
+  // AUDIO overlay
+  el.btnAudio?.addEventListener('click', () => {
+    if(!el.audioOverlay) return;
+    el.audioOverlay.classList.add("show");
+    el.audioOverlay.setAttribute("aria-hidden", "false");
+    refreshAudio();
+  });
+  el.btnAudioClose?.addEventListener('click', () => {
+    el.audioOverlay?.classList.remove("show");
+    el.audioOverlay?.setAttribute("aria-hidden", "true");
+  });
+  el.btnRefreshAudio?.addEventListener('click', refreshAudio);
+
+  // CONF (usa el desplegable existente: mismo botón que la flechita)
+  el.btnConf?.addEventListener('click', () => toggleHeader());
+
+  // EDIT
+  loadEditMode();
+  loadHotkeys();
+  applyEditModeUI();
+
+  el.btnEdit?.addEventListener('click', () => {
+    editMode = !editMode;
+    saveEditMode();
+    applyEditModeUI();
+    log(editMode ? "✏️ EDIT ON: puntitos y etiquetas activados." : "🔒 EDIT OFF: sin puntitos/etiquetas (safe).");
+  });
+  el.btnClearHotkeys?.addEventListener('click', clearAllHotkeys);
+
+  // CONTROL
+  el.btnRecCtl?.addEventListener('click', toggleRecord);
+  el.btnStreamCtl?.addEventListener('click', toggleStream);
+  el.btnRefreshCtl?.addEventListener('click', refreshControl);
+  el.btnRefreshFilters?.addEventListener('click', () => refreshFiltersForSource(el.filterSourceSelect?.value || ""));
+  el.filterSourceSelect?.addEventListener('change', () => refreshFiltersForSource(el.filterSourceSelect.value));
+
+
+  /* ================= EDIT MODE + HOTKEYS (sistema avanzado, sin pestañas) ================= */
+
+  function loadEditMode(){ editMode = (localStorage.getItem(EDIT_STORAGE_KEY) === "1"); }
+  function saveEditMode(){ localStorage.setItem(EDIT_STORAGE_KEY, editMode ? "1" : "0"); }
+  function loadHotkeys(){
+    try{ hotkeys = JSON.parse(localStorage.getItem(HOTKEYS_STORAGE_KEY) || "{}") || {}; }
+    catch{ hotkeys = {}; }
+  }
+  function saveHotkeys(){ localStorage.setItem(HOTKEYS_STORAGE_KEY, JSON.stringify(hotkeys)); }
+  function hkKey(type,id){ return `${type}::${id}`; }
+
+  function isTypingContext(){
+    const a = document.activeElement;
+    if(!a) return false;
+    const tag = (a.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || a.isContentEditable;
+  }
+
+  function normalizeHotkeyFromEvent(e){
+    const k = e.key;
+    if(k === "Shift" || k === "Control" || k === "Alt" || k === "Meta") return null;
+
+    let keyName = k;
+    if(keyName === " ") keyName = "Space";
+    if(keyName === "Escape") keyName = "Esc";
+    if(keyName.startsWith("Arrow")) keyName = keyName.replace("Arrow", "");
+    if(keyName.length === 1) keyName = keyName.toUpperCase();
+
+    const parts = [];
+    if(e.ctrlKey) parts.push("Ctrl");
+    if(e.altKey) parts.push("Alt");
+    if(e.shiftKey) parts.push("Shift");
+    if(e.metaKey) parts.push("Meta");
+    parts.push(keyName);
+    return parts.join("+");
+  }
+
+  function findActionByHotkey(hk){
+    for(const k of Object.keys(hotkeys)){
+      if(hotkeys[k] === hk){
+        const [type, ...rest] = k.split("::");
+        return {type, id: rest.join("::")};
+      }
+    }
+    return null;
+  }
+
+  function clearCaptureUI(){
+    if(!hotkeyCapture) return;
+    hotkeyCapture.el.classList.remove("btn-listening");
+    hotkeyCapture.el.querySelectorAll(".hotspot").forEach(s => s.classList.remove("listening"));
+    hotkeyCapture = null;
+  }
+
+  function startCapture(type, id, el, which=null){
+    if(!editMode) return;
+    clearCaptureUI();
+    hotkeyCapture = {type, id, el, which};
+    el.classList.add("btn-listening");
+    const spot = which ? el.querySelector(`.hotspot[data-hk="${which}"]`) : el.querySelector(".hotspot");
+    if(spot) spot.classList.add("listening");
+    log(`🎹 Asignar atajo → ${type}: "${id}". Pulsa combinación (Esc cancela, Supr borra).`);
+  }
+
+  function setHotkey(type, id, hk){
+    const key = hkKey(type, id);
+
+    // Evita duplicados (si una tecla ya estaba asignada, se "mueve" a la nueva acción)
+    for(const k of Object.keys(hotkeys)){
+      if(hotkeys[k] === hk && k !== key) delete hotkeys[k];
+    }
+
+    hotkeys[key] = hk;
+    saveHotkeys();
+  }
+  function removeHotkey(type, id){
+    const key = hkKey(type, id);
+    if(hotkeys[key]){
+      delete hotkeys[key];
+      saveHotkeys();
+    }
+  }
+
+  function applyHotkeyBadge(el, type, id){
+    if(!el) return;
+    if(!el.classList.contains('hkTarget')) el.classList.add('hkTarget');
+    const key = hkKey(type, id);
+    const hk = hotkeys[key] || "";
+
+    let spot = el.querySelector(".hotspot");
+    if(!spot){
+      spot = document.createElement("div");
+      spot.className = "hotspot";
+      spot.title = "Asignar atajo";
+      spot.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        startCapture(type, id, el);
+      });
+      el.appendChild(spot);
+    }
+    spot.classList.toggle("has", !!hk);
+
+    let lab = el.querySelector(".hotkey-label");
+    if(hk){
+      if(!lab){
+        lab = document.createElement("div");
+        lab.className = "hotkey-label";
+        el.appendChild(lab);
+      }
+      lab.textContent = hk;
+    }else{
+      if(lab) lab.remove();
+    }
+  }
+
+  function applyDualHotkeyBadge(el, typeMinus, idMinus, typePlus, idPlus){
+    if(!el) return;
+    if(!el.classList.contains('hkTarget')) el.classList.add('hkTarget');
+
+    const keyMinus = hkKey(typeMinus, idMinus);
+    const keyPlus  = hkKey(typePlus,  idPlus);
+    const hkMinus = hotkeys[keyMinus] || "";
+    const hkPlus  = hotkeys[keyPlus]  || "";
+
+    // Spot minus (izquierda)
+    let spotMinus = el.querySelector(".hotspot[data-hk='minus']");
+    if(!spotMinus){
+      spotMinus = document.createElement("div");
+      spotMinus.className = "hotspot";
+      spotMinus.dataset.hk = "minus";
+      spotMinus.title = "Asignar atajo (-)";
+      spotMinus.addEventListener("click", (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        startCapture(typeMinus, idMinus, el, "minus");
+      });
+      el.appendChild(spotMinus);
+    }
+    spotMinus.classList.toggle("has", !!hkMinus);
+
+    let labMinus = el.querySelector(".hotkey-label[data-hk='minus']");
+    if(hkMinus){
+      if(!labMinus){
+        labMinus = document.createElement("div");
+        labMinus.className = "hotkey-label";
+        labMinus.dataset.hk = "minus";
+        el.appendChild(labMinus);
+      }
+      labMinus.textContent = hkMinus;
+    }else{
+      if(labMinus) labMinus.remove();
+    }
+
+    // Spot plus (derecha)
+    let spotPlus = el.querySelector(".hotspot[data-hk='plus']");
+    if(!spotPlus){
+      spotPlus = document.createElement("div");
+      spotPlus.className = "hotspot";
+      spotPlus.dataset.hk = "plus";
+      spotPlus.title = "Asignar atajo (+)";
+      spotPlus.addEventListener("click", (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        startCapture(typePlus, idPlus, el, "plus");
+      });
+      el.appendChild(spotPlus);
+    }
+    spotPlus.classList.toggle("has", !!hkPlus);
+
+    let labPlus = el.querySelector(".hotkey-label[data-hk='plus']");
+    if(hkPlus){
+      if(!labPlus){
+        labPlus = document.createElement("div");
+        labPlus.className = "hotkey-label";
+        labPlus.dataset.hk = "plus";
+        el.appendChild(labPlus);
+      }
+      labPlus.textContent = hkPlus;
+    }else{
+      if(labPlus) labPlus.remove();
+    }
+  }
+
+
+  function applyEditModeUI(){
+    document.body.classList.toggle("edit-on", editMode);
+    if(el.btnEdit){
+      el.btnEdit.textContent = editMode ? "EDIT: ON" : "EDIT: OFF";
+      el.btnEdit.classList.toggle("primary", editMode);
+    }
+    if(!editMode && hotkeyCapture){
+      log("✋ EDIT OFF → captura cancelada (safe).");
+      clearCaptureUI();
+    }
+    refreshAllHotkeyBadges();
+  }
+
+  function refreshAllHotkeyBadges(){
+    // TAKE
+    applyHotkeyBadge(el.btnTake, "TAKE", "TAKE");
+
+    // Escenas (tiles + botonera inferior)
+    document.querySelectorAll(".tile").forEach(t => {
+      const name = t.dataset.scene;
+      if(name) applyHotkeyBadge(t, "Scene", name);
+    });
+    document.querySelectorAll(".bbtn").forEach(b => {
+      const name = b.dataset.scene;
+      if(name) applyHotkeyBadge(b, "Scene", name);
+    });
+
+    // Fuentes (columna)
+    document.querySelectorAll(".srcBtn").forEach(b => {
+      const name = b.dataset.source;
+      if(name) applyHotkeyBadge(b, "Source", name);
+    });
+
+    // Control
+    applyHotkeyBadge(el.btnRecCtl, "REC", "REC");
+    applyHotkeyBadge(el.btnStreamCtl, "STREAM", "STREAM");
+
+        // Audio: mute por input + VOL-/VOL+
+    if(el.mixersContainer){
+      el.mixersContainer.querySelectorAll(".mixer").forEach(m => {
+        const input = m.dataset.input;
+        const muteBtn = m.querySelector(".mixer-mute");
+        const fader = m.querySelector(".fader-container");
+        if(muteBtn && input) applyHotkeyBadge(muteBtn, "AudioMute", input);
+        if(fader && input) applyDualHotkeyBadge(fader, "AudioVolDown", input, "AudioVolUp", input);
+      });
+    }
+
+    // Filtros
+    document.querySelectorAll(".filter-btn").forEach(b => {
+      const src = b.dataset.src || "";
+      const f = b.dataset.filter || "";
+      if(src && f) applyHotkeyBadge(b, "FilterToggle", `${src}||${f}`);
+    });
+  }
+
+  function clearAllHotkeys(){
+    hotkeys = {};
+    saveHotkeys();
+    refreshAllHotkeyBadges();
+    log("🧽 Atajos borrados.");
+  }
+
+
+  /* ================= ATAJOS (teclas) para BOTONERA INFERIOR =================
+     - Pulsar una tecla selecciona la escena equivalente (por índice).
+     - No actúa si estás escribiendo en un input/textarea/select.
+     - Si CTRL_FOR_PROGRAM_IN_STUDIO=true, Ctrl+Tecla fuerza Program incluso en Estudio.
+  */
+  
+  /* ================= ATAJOS (teclas) =================
+     1) Si EDIT está capturando, guarda atajo
+     2) Si hay atajo asignado, ejecuta acción
+     3) Si no, fallback a tu sistema actual (TAKE_HOTKEY + KEY_BINDINGS)
+  */
+  document.addEventListener("keydown", async (ev) => {
+    // 1) Captura
+    if(hotkeyCapture){
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      if(ev.key === "Escape"){
+        log("🎹 Asignación cancelada.");
+        clearCaptureUI();
+        return;
+      }
+      if(ev.key === "Backspace" || ev.key === "Delete"){
+        removeHotkey(hotkeyCapture.type, hotkeyCapture.id);
+        refreshAllHotkeyBadges();
+        log(`🧽 Atajo borrado → ${hotkeyCapture.type}: "${hotkeyCapture.id}"`);
+        clearCaptureUI();
+        return;
+      }
+
+      const hk = normalizeHotkeyFromEvent(ev);
+      if(!hk) return;
+
+      setHotkey(hotkeyCapture.type, hotkeyCapture.id, hk);
+      refreshAllHotkeyBadges();
+      log(`✅ Atajo guardado: ${hk} → ${hotkeyCapture.type}: "${hotkeyCapture.id}"`);
+      clearCaptureUI();
+      return;
+    }
+
+    // 2) Ejecución por hotkeys avanzados
+    if(isTypingContext() || isTypingTarget(ev.target)) return;
+
+    const hk = normalizeHotkeyFromEvent(ev);
+    if(hk){
+      const action = findActionByHotkey(hk);
+      if(action){
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        try{
+          if(action.type === "TAKE"){ await take(); return; }
+          if(action.type === "Scene"){ await selectScene(action.id, false); return; }
+          if(action.type === "Source"){
+            // acción sobre la escena seleccionada (la columna FUENTES)
+            const it = selectedSceneItems.find(x => x.sourceName === action.id);
+            if(it) await toggleSceneItem(selectedSceneName, it.sceneItemId, !it.enabled);
+            else log(`⚠️ Fuente "${action.id}" no está disponible (toca una escena).`);
+            return;
+          }
+          if(action.type === "AudioMute"){ await toggleMute(action.id); return; }
+          if(action.type === "AudioVolUp"){ await nudgeVolume(action.id, +1.0); return; }
+          if(action.type === "AudioVolDown"){ await nudgeVolume(action.id, -1.0); return; }
+          if(action.type === "REC"){ await toggleRecord(); return; }
+          if(action.type === "STREAM"){ await toggleStream(); return; }
+          if(action.type === "FilterToggle"){
+            const [srcName, fname] = action.id.split("||");
+            if(srcName && fname) await toggleFilterEnabled(srcName, fname, null);
+            return;
+          }
+          if(action.type === "FilterParamUp"){ await nudgeFilterParam(action.id, +1); return; }
+          if(action.type === "FilterParamDown"){ await nudgeFilterParam(action.id, -1); return; }
+        }catch(e){
+          log("⚠️ Hotkey: " + (e?.message || e));
+          return;
+        }
+      }
+    }
+
+    // 3) Fallback actual: TAKE_HOTKEY + KEY_BINDINGS (por índice)
+    const kk = normKey(eventToKey(ev));
+    if(kk === normKey(TAKE_HOTKEY)){
+      ev.preventDefault();
+      await take();
+      return;
+    }
+
+    if(!scenes || scenes.length === 0) return;
+
+    const key = normKey(eventToKey(ev));
+    if(!key) return;
+
+    const max = (typeof BOTTOM_MAX === "number" && BOTTOM_MAX > 0) ? Math.min(BOTTOM_MAX, scenes.length) : scenes.length;
+    const list = scenes.slice(0, max);
+
+    let idx = -1;
+    for(let i=0; i<Math.min(KEY_BINDINGS.length, list.length); i++){
+      if(normKey(KEY_BINDINGS[i]) === key){ idx = i; break; }
+    }
+    if(idx < 0) return;
+
+    ev.preventDefault();
+
+    const sceneName = list[idx];
+    const forceProgram = !!(CTRL_FOR_PROGRAM_IN_STUDIO && studioEnabled && (ev.ctrlKey || ev.metaKey));
+    await selectScene(sceneName, forceProgram);
+  }, {passive:false});
+
+load();
+  applyBottomWrapSetting();
+  setState('', 'desconectado');
+  log("Listo. 1) Conectar  2) Start  3) Click escena = Preview  4) TAKE");
+})();</script>
+</body>
+</html>
