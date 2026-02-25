@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <!-- ========= ANDROID / MOBILE FRIENDLY =========
+       - viewport-fit=cover: aprovecha pantalla completa (notch)
+       - user-scalable=no: evita zoom accidental al tocar tiles
+  -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>OBS Multiview + TAKE (Mobile)</title>
+
+  
+  <style>
+    :root{
+      --bg:#050811;
+      --panel:#0a0f1a;
+      --line:rgba(255,255,255,.15);
+      --txt:#e8eef5;
+      --muted:#7b8ba8;
+      --accent:#00d4ff;
+
+      --gap:0px;
+      --dockW: clamp(80px, 15vw, 100px);
+
+      /* ================= TABLET MULTIVIEW =================
+         Columna IZQUIERDA de FUENTES (scene items).
+         Ajusta aquí el ANCHO y ALTURAS sin tocar el resto.
+         ================================================== */
+      --srcW: clamp(120px, 18vw, 200px);   /* 👈 ancho columna FUENTES */
+      --srcBtnH: 50px;                    /* 👈 alto botón fuente */
+      --srcGap: 6px;                      /* separación entre botones */
+      --srcPad: 8px;                      /* padding interior panel */
+      --dockGap: 10px;                    /* separación dentro del dock */
+      --takeMinH: 40px;                   /* 👈 alto mínimo botón TAKE */
+
+      --radius:10px;
+      --green: rgba(0,255,136,.85);
+      --red:   rgba(255,51,102,.85);
+
+      --tap-min: 40px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:var(--bg);
+      color:var(--txt);
+      overscroll-behavior:none;
+    }
+
+    /* ================= HEADER (plegable) ================= */
+    header{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:linear-gradient(180deg,#0b1220,#0a0f1a);
+  border-bottom:1px solid var(--line);
+
+  padding:0px 0px;   /* ← REDUCE ESTO */
+}
+    header.collapsed{padding-bottom:0px}
+    .row{display:flex;gap:2px;flex-wrap:wrap;align-items:center}
+
+    .hdrTop{flex-wrap:nowrap}
+    .hdrTitle{display:flex;gap:2px;align-items:center;min-width:0;flex:1}
+    .hdrTitleText{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hdrBtns{display:flex;gap:1px;align-items:center}
+    .iconBtn{
+      min-height: var(--tap-min);
+      min-width: var(--tap-min);
+      width: var(--tap-min);
+      padding:0;
+      display:grid;place-items:center;
+      font-size:10px;font-weight:1000;
+    }
+    .hdrBody{margin-top:0px}
+    header.collapsed .hdrBody{display:none}
+
+    input, select, button{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--txt);
+      border-radius:10px;
+      padding:2px 2px;
+      font-weight:650;
+      outline:none;
+      min-height: var(--tap-min);
+    }
+    input{min-width:180px;flex:1}
+    select{flex:1; min-width:140px}
+    button{cursor:pointer}
+    button.primary{border-color:var(--accent);background:rgba(0,212,255,.14)}
+    button.take{border-color:rgba(255,255,255,.25); background:rgba(255,51,102,.18)}
+    button:active{transform:translateY(1px)}
+
+    .dot{width:10px;height:10px;border-radius:50%;background:#666}
+    .dot.ok{background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,.6)}
+    .dot.bad{background:#ff3366;box-shadow:0 0 10px rgba(255,51,102,.6)}
+    .small{font-size:11px;color:var(--muted);font-weight:850}
+
+    main{padding:10px}
+
+    /* ================= TOP LAYOUT ================= */
+
+    /* ================= TABLET: LAYOUT CON FUENTES A LA IZQUIERDA =================
+       Estructura:
+       .layout => [ FUENTES | CONTENIDO ]
+         - FUENTES: lista vertical (scroll) de Scene Items de la escena SELECCIONADA.
+         - CONTENIDO: tu layout actual (Preview | Program | Dock) + grid de escenas
+       --------------------------------------------------------------------------- */
+    .layout{
+      display:grid;
+      grid-template-columns: var(--srcW) 1fr; /* 👈 ANCHO FUENTES | resto */
+      gap: var(--gap);
+      align-items: start;
+    }
+
+    /* En móvil apilamos: primero top+escenas y las fuentes bajan (o puedes ocultarlas) */
+    @media (max-width: 700px){
+      .layout{ grid-template-columns: 1fr; }
+      .sourcesCol{ order: 2; }
+      .contentCol{ order: 1; }
+    }
+
+    .sourcesCol{
+      position: sticky;
+      top: calc(var(--tap-min) + 4px); /* 👈 separa del header (ajústalo si cambias header) */
+      align-self: start;
+    }
+
+    .sourcesPanel{
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      min-height: 30px;
+    }
+    .sourcesHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+    }
+    .sourcesHead .label{
+      font-size:10px;
+      color: var(--muted);
+      font-weight: 950;
+      letter-spacing:.04em;
+      text-transform: uppercase;
+    }
+    .sourcesHead .sceneName{
+      font-size:10px;
+      color: rgba(255,255,255,.85);
+      font-weight: 900;
+      max-width: 55%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      text-align:right;
+    }
+
+    .sourcesList{
+      padding: var(--srcPad);
+      display:flex;
+      flex-direction:column;
+      gap: var(--srcGap);
+      max-height: calc(100vh - 140px); /* 👈 ALTURA total panel FUENTES (ajústalo) */
+      overflow:auto;
+      overscroll-behavior: contain;
+    }
+
+    .srcBtn{
+      height: var(--srcBtnH);
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      color: var(--txt);
+      border-radius: 10px;
+      font-weight: 950;
+      font-size: 12px;
+      padding: 0 10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .srcBtn .name{
+      flex:1;
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      text-align:left;
+    }
+    .srcBtn .state{
+      font-weight:1000;
+      font-size:11px;
+      opacity:.95;
+    }
+    .srcBtn.on{
+      border-color: rgba(0,255,136,.55);
+      background: rgba(0,255,136,.12);
+    }
+    .srcBtn.off{
+      border-color: rgba(255,51,102,.30);
+      background: rgba(255,51,102,.08);
+      opacity: .88;
+    }
+
+    /* ================= DOCK (TRANSICIÓN + TAKE) =================
+       Ajusta aquí la ALTURA/ANCHO de la columna de transiciones/TAKE:
+       - Ancho: --dockW (en :root)
+       - Separación: --dockGap
+       - Altura TAKE: --takeMinH
+    */
+
+    .top{
+      display:grid;
+      grid-template-columns: 1fr 1fr var(--dockW); /* Preview | Program | Dock */
+      gap:var(--gap);
+      margin-bottom:var(--gap);
+      align-items:stretch;
+    }
+    @media (max-width: 700px){
+      .top{ grid-template-columns: 1fr; } /* móvil: se apila */
+    }
+
+    .card{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      overflow:hidden;
+      min-height: 30px;
+    }
+
+    .live{ position:relative; }
+    .ms{
+      position:absolute; right:8px; top:8px;
+      background:rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.18);
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:12px;
+      color:var(--txt);
+      pointer-events:none;
+      backdrop-filter: blur(6px);
+    }
+
+    .viewer{
+      width:100%;
+      aspect-ratio: 16 / 9;
+      background:#000;
+      display:block;
+      object-fit:cover;
+      touch-action: manipulation;
+    }
+
+    /* ================= DOCK (TRANSICIÓN + TAKE) ================= */
+    .dock{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:var(--dockGap);
+      padding:0px;
+    }
+      padding:0px;
+    }
+    .dock .label{font-size:10px;color:var(--muted);font-weight:950;letter-spacing:.04em}
+    .dock .line{height:1px;background:var(--line)}
+    .dock input,.dock select,.dock button{width:100%}
+    .dock button.take{min-height:var(--takeMinH);font-size:20px;font-weight:1000}  /* 👈 ajusta --takeMinH */
+    .dock .status{font-size:10px;color:var(--muted);font-weight:900;min-height:10px}
+
+    /* Borde de estado */
+    .frame{outline:0 solid transparent; outline-offset:-4px}
+    .frame.preview{outline:3px solid var(--green)}
+    .frame.program{outline:3px solid var(--red)}
+
+    /* ================= GRID ESCENAS ================= */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap:var(--gap);
+    }
+    @media (max-width: 1000px){ .grid{grid-template-columns: repeat(6, 1fr);} }
+    @media (max-width: 700px){ .grid{grid-template-columns: repeat(4, 1fr);} }
+    @media (max-width: 480px){ .grid{grid-template-columns: repeat(3, 1fr);} }
+    @media (max-width: 320px){ .grid{grid-template-columns: repeat(2, 1fr);} }
+
+    .tile{
+      position:relative;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+    }
+    .tile:hover{transform: translateY(-1px)}
+    .badge{
+      position:absolute;left:8px;bottom:8px;
+      background:rgba(0,0,0,.55);
+      border:1px solid rgba(255,255,255,.18);
+      padding:6px 10px;border-radius:999px;
+      font-weight:1000;font-size:11px;
+      backdrop-filter: blur(8px);
+      max-width: calc(100% - 16px);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    /* Log */
+    .log{
+      margin-top:10px;
+      background:rgba(0,0,0,.4);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:12px;color:var(--muted);
+      max-height:22vh;overflow:auto;line-height:1.35;
+    }
+  
+    /* ================= HEADER: MONITORES (REC/STREAM) + STUDIO TOGGLE ================= */
+    .monitors{display:flex;gap:10px;align-items:center;margin-left:6px}
+    .mon{display:flex;gap:6px;align-items:center}
+    .mon .lbl{font-size:10px;color:var(--muted);font-weight:950;letter-spacing:.04em}
+    .led{
+      width:10px;height:10px;border-radius:50%;
+      background:#444;border:1px solid rgba(255,255,255,.18);
+      box-shadow:none;
+    }
+    .led.on{background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,.55)}
+    .led.blink{ animation: ledBlink 1s infinite; }
+    @keyframes ledBlink{
+      0%,60%{filter:brightness(1)}
+      80%{filter:brightness(1.8)}
+      100%{filter:brightness(1)}
+    }
+    .studioToggle{
+      min-height: var(--tap-min);
+      padding:0 10px;
+      font-size:11px;
+      font-weight:1000;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .studioToggle.on{
+      border-color: rgba(0,255,136,.55);
+      background: rgba(0,255,136,.12);
+    }
+    .studioToggle.off{
+      border-color: rgba(255,51,102,.35);
+      background: rgba(255,51,102,.10);
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<header id="topbar">
+  <div class="row hdrTop">
+    <div class="hdrTitle">
+      <div class="dot" id="dot"></div>
+      <div class="hdrTitleText">OBS Multiview</div>
+      <div class="small" id="stateText">desconectado</div>
+      <!-- ===== Tablet: MONITORES (solo lectura) + Toggle Modo Estudio ===== -->
+      <div class="monitors" title="Monitores (sin acción)">
+        <div class="mon"><span class="led" id="ledRec"></span><span class="lbl">REC</span></div>
+        <div class="mon"><span class="led" id="ledStream"></span><span class="lbl">STREAM</span></div>
+      </div>
+      <button class="studioToggle off" id="btnStudio" title="Activar / desactivar Modo Estudio (OBS)">Studio: OFF</button>
+    </div>
+
+    <div class="hdrBtns">
+      <button class="iconBtn" id="btnHdrToggle" title="Plegar / desplegar">
+        <span id="hdrIcon">▾</span>
+      </button>
+      <button class="iconBtn" id="btnFs" title="Pantalla completa">⛶</button>
+    </div>
+  </div>
+
+  <div class="hdrBody">
+    <div class="row">
+      <input id="wsUrl" placeholder="ws://127.0.0.1:4455" />
+      <input id="wsPass" type="password" placeholder="Contraseña (si hay)" />
+      <input id="fps" placeholder="FPS (ej: 2)" style="max-width:90px;min-width:70px;flex:0;" />
+      <button class="primary" id="btnConnect">Conectar</button>
+      <button id="btnStart">Start</button>
+      <button id="btnStop">Stop</button>
+    </div>
+    <div class="small" style="margin-top:6px;">
+      Para TAKE: activa Modo Estudio en OBS. En móvil, 1–3 FPS suele ir ideal.
+    </div>
+  </div>
+</header>
+
+
+<main>
+  <!-- ===================== LAYOUT TABLET =====================
+       Columna izquierda: FUENTES (scene items de la escena seleccionada)
+       Columna derecha: tu UI actual (Preview | Program | Dock + escenas)
+       ======================================================== -->
+  <div class="layout">
+
+    <!-- ===== LEFT: FUENTES ===== -->
+    <aside class="sourcesCol">
+      <div class="sourcesPanel">
+        <div class="sourcesHead">
+          <div class="label">FUENTES</div>
+          <div class="sceneName" id="srcSceneName">—</div>
+        </div>
+        <div class="sourcesList" id="sourcesList">
+          <div class="small" style="padding:6px;opacity:.8">Toca una escena para cargar sus fuentes.</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== RIGHT: CONTENIDO ===== -->
+    <section class="contentCol">
+      <!-- ===== TOP: Preview | Program | Dock ===== -->
+      <div class="top">
+    <!-- PREVIEW -->
+    <div class="card live" id="pvCard">
+      <!-- (Bar eliminada: el rótulo ya viene dentro de la captura de OBS) -->
+      <img id="pvImg" class="viewer frame preview" alt="Preview" />
+    </div>
+
+    <!-- PROGRAM -->
+    <div class="card live" id="pgCard">
+      <!-- Solo mostramos ms como overlay (opcional) -->
+      <div class="ms" id="pgMs">—</div>
+      <img id="pgImg" class="viewer frame program" alt="Program" />
+    </div>
+
+    
+    <!-- DOCK: Transición + TAKE a la derecha -->
+    <div class="card dock rightDock">
+      <div class="label">TRANSICIÓN</div>
+      <select id="transSel">
+        <option value="">(cargando…)</option>
+      </select>
+
+      <div class="label">DURACIÓN</div>
+      <input id="durMs" inputmode="numeric" placeholder="ms (ej: 300)" />
+
+      <button class="take" id="btnTake">TAKE</button>
+
+      <div class="line"></div>
+      <div class="status" id="dockStatus">—</div>
+    </div>
+  </div>
+
+  <!-- ===== Scenes grid ===== -->
+  <div class="grid" id="sceneGrid"></div>
+
+  <!-- ===== Log ===== -->
+  <div class="log" id="log"></div>
+    </section>
+  </div>
+
+</main>
+
+<script>
+(() => {
+  /* =========================================================
+     ✅ AJUSTES RÁPIDOS DE CAPTURA (solo JS)
+     Cambia aquí para ajustar tamaños/calidad/rendimiento.
+     ========================================================= */
+  const CAPTURE = {
+    // Preview/Program (arriba)
+    TOP_W: 480,   // 👈 ajusta: 960 / 1280 / 1920
+    TOP_H: 270,
+    TOP_Q: 60,     // calidad JPG 0–100
+
+    // Miniaturas (abajo) - para 8 por fila es mejor algo ligero
+    TILE_W: 480,   // 👈 ajusta: 320 / 480 / 640
+    TILE_H: 270,
+    TILE_Q: 40,
+
+    // Cuántas miniaturas se actualizan por tick (round-robin)
+    // Subir esto = miniaturas más “vivas” pero más CPU/red
+    TILES_PER_TICK_BASE: 18,
+  };
+
+  const el = {
+    dot: document.getElementById('dot'),
+    stateText: document.getElementById('stateText'),
+    wsUrl: document.getElementById('wsUrl'),
+    wsPass: document.getElementById('wsPass'),
+    fps: document.getElementById('fps'),
+    btnConnect: document.getElementById('btnConnect'),
+    btnStart: document.getElementById('btnStart'),
+    btnStop: document.getElementById('btnStop'),
+
+    btnHdrToggle: document.getElementById('btnHdrToggle'),
+    btnFs: document.getElementById('btnFs'),
+    header: document.getElementById('topbar'),
+    hdrIcon: document.getElementById('hdrIcon'),
+
+    pvImg: document.getElementById('pvImg'),
+    pgImg: document.getElementById('pgImg'),
+    pgMs: document.getElementById('pgMs'),
+
+    transSel: document.getElementById('transSel'),
+    durMs: document.getElementById('durMs'),
+    btnTake: document.getElementById('btnTake'),
+    dockStatus: document.getElementById('dockStatus'),
+
+    grid: document.getElementById('sceneGrid'),
+    log: document.getElementById('log'),
+
+    // Header monitors + Studio toggle
+    ledRec: document.getElementById('ledRec'),
+    ledStream: document.getElementById('ledStream'),
+    btnStudio: document.getElementById('btnStudio'),
+  };
+
+  /* =========================================================
+     =================== FUENTES (SCENE ITEMS) =================
+     Objetivo (tablet):
+     - Columna izquierda con las FUENTES de la escena seleccionada
+     - Tap en fuente => ON/OFF (SetSceneItemEnabled)
+     NOTA: aquí NO usamos atajos de teclado.
+     ========================================================= */
+
+  // Estado de "escena seleccionada" (la que has tocado en el grid)
+  let selectedSceneName = "";
+
+  // Scene items de la escena seleccionada: [{sceneItemId, sourceName, enabled}]
+  let selectedSceneItems = [];
+
+  // Elementos UI (panel fuentes)
+  el.sourcesList = document.getElementById('sourcesList');
+  el.srcSceneName = document.getElementById('srcSceneName');
+
+  // Helper: pinta lista de fuentes
+  function renderSourcesColumn(){
+    if(!el.sourcesList) return;
+    el.sourcesList.innerHTML = "";
+
+    // Cabecera: nombre escena
+    if(el.srcSceneName) el.srcSceneName.textContent = selectedSceneName || "—";
+
+    if(!selectedSceneName){
+      const d = document.createElement("div");
+      d.className = "small";
+      d.style.padding = "6px";
+      d.style.opacity = ".8";
+      d.textContent = "Toca una escena para cargar sus fuentes.";
+      el.sourcesList.appendChild(d);
+      return;
+    }
+
+    if(!selectedSceneItems || selectedSceneItems.length === 0){
+      const d = document.createElement("div");
+      d.className = "small";
+      d.style.padding = "6px";
+      d.style.opacity = ".8";
+      d.textContent = "Esta escena no tiene fuentes (o no se pudieron leer).";
+      el.sourcesList.appendChild(d);
+      return;
+    }
+
+    selectedSceneItems.forEach(it => {
+      const b = document.createElement("button");
+      b.className = "srcBtn " + (it.enabled ? "on" : "off");
+      b.type = "button";
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = it.sourceName;
+
+      const st = document.createElement("div");
+      st.className = "state";
+      st.textContent = it.enabled ? "ON" : "OFF";
+
+      b.appendChild(name);
+      b.appendChild(st);
+
+      b.addEventListener("click", async () => {
+        await toggleSceneItem(selectedSceneName, it.sceneItemId, !it.enabled);
+      });
+
+      el.sourcesList.appendChild(b);
+    });
+  }
+
+  // Lee items de una escena concreta y los guarda en selectedSceneItems
+  async function loadSceneItemsFor(sceneName){
+    selectedSceneName = sceneName || "";
+    selectedSceneItems = [];
+    renderSourcesColumn();
+
+    if(!sceneName || !ws) return;
+
+    try{
+      // OBS WS v5: GetSceneItemList {sceneName} => {sceneItems:[{sceneItemId, sourceName, sceneItemEnabled}]}
+      const data = await request("GetSceneItemList", { sceneName });
+      const items = (data?.sceneItems || []).map(it => ({
+        sceneItemId: it.sceneItemId,
+        sourceName: it.sourceName,
+        enabled: !!it.sceneItemEnabled
+      }));
+
+      // Orden alfabético (tablet: fácil de encontrar)
+      items.sort((a,b) => (a.sourceName||"").localeCompare((b.sourceName||""), "es", {sensitivity:"base"}));
+
+      selectedSceneItems = items;
+      renderSourcesColumn();
+    }catch(err){
+      log("⚠️ No pude leer fuentes: " + (err.message || err));
+      selectedSceneItems = [];
+      renderSourcesColumn();
+    }
+  }
+
+  // Cambia enable state de un item y refresca la lista
+  async function toggleSceneItem(sceneName, sceneItemId, nextEnabled){
+    if(!ws || !sceneName) return;
+
+    try{
+      await request("SetSceneItemEnabled", {
+        sceneName,
+        sceneItemId,
+        sceneItemEnabled: !!nextEnabled
+      });
+
+      // Actualiza estado local
+      const it = selectedSceneItems.find(x => x.sceneItemId === sceneItemId);
+      if(it) it.enabled = !!nextEnabled;
+
+      renderSourcesColumn();
+      log(`Fuente → ${nextEnabled ? "ON" : "OFF"} (escena "${sceneName}")`);
+    }catch(err){
+      log("❌ Error fuente: " + (err.message || err));
+    }
+  }
+  /* ================= FIN FUENTES (SCENE ITEMS) ================= */
+
+
+  /* ===================== STUDIO MODE (TOGGLE) =====================
+     - Si Studio ON: click escena => Preview, TAKE funciona
+     - Si Studio OFF: click escena => Program DIRECTO
+       (Preview y Program se muestran iguales)
+     =============================================================== */
+  let studioEnabled = true;
+
+  function paintStudioBtn(){
+    if(!el.btnStudio) return;
+    el.btnStudio.classList.toggle('on', !!studioEnabled);
+    el.btnStudio.classList.toggle('off', !studioEnabled);
+    el.btnStudio.textContent = `Studio: ${studioEnabled ? "ON" : "OFF"}`;
+    // En Studio OFF, TAKE no aplica
+    if(el.btnTake){
+      el.btnTake.disabled = !studioEnabled;
+      el.btnTake.style.opacity = studioEnabled ? "1" : ".45";
+      el.btnTake.title = studioEnabled ? "TAKE" : "TAKE requiere Modo Estudio";
+    }
+  }
+
+  function setLed(elLed, on, blink){
+    if(!elLed) return;
+    elLed.classList.toggle('on', !!on);
+    elLed.classList.toggle('blink', !!blink);
+  }
+
+  async function refreshRecStream(){
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
+    try{
+      const r = await request("GetRecordStatus");
+      setLed(el.ledRec, !!r.outputActive, !!r.outputActive);
+    }catch(e){}
+    try{
+      const s = await request("GetStreamStatus");
+      setLed(el.ledStream, !!s.outputActive, !!s.outputActive);
+    }catch(e){}
+  }
+
+  async function toggleStudioMode(){
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
+    try{
+      studioEnabled = !studioEnabled;
+      await request("SetStudioModeEnabled", { studioModeEnabled: !!studioEnabled });
+      paintStudioBtn();
+      setDock(studioEnabled ? "Modo Estudio: ON ✅" : "Modo Estudio: OFF ✅");
+      await syncCurrentScenes();
+          applyHighlights();
+    }catch(e){
+      studioEnabled = !studioEnabled;
+      paintStudioBtn();
+      log("❌ No pude cambiar Modo Estudio: " + (e.message||e));
+    }
+  }
+
+  async function syncCurrentScenes(){
+    try{
+      const p = await request("GetCurrentPreviewScene");
+      previewScene = p.currentPreviewSceneName;
+    }catch(e){}
+    try{
+      const g = await request("GetCurrentProgramScene");
+      programScene = g.currentProgramSceneName;
+
+      
+
+      // Preview (Studio ON): refresco ESporádico para mantener el borde verde sin saturar el WS
+      if(studioEnabled){
+        const now = Date.now();
+        if(now - lastPreviewPollTs > 800){ // 👈 ajusta (ms)
+          try{
+            const p = await request("GetCurrentPreviewScene");
+            if(p?.currentPreviewSceneName) previewScene = p.currentPreviewSceneName;
+          }catch(_e){}
+          lastPreviewPollTs = now;
+        }
+      }else{
+        // Studio OFF: no existe preview real
+        previewScene = programScene;
+      }
+if(!studioEnabled){ previewScene = programScene; }
+    }catch(e){}
+    if(!studioEnabled){
+      previewScene = programScene;
+    }
+    applyHighlights();
+    const active = studioEnabled ? (previewScene || programScene) : programScene;
+    if(active) loadSceneItemsFor(active);
+  }
+
+
+
+  function log(msg){
+    const t = new Date().toLocaleTimeString('es-ES');
+    const d = document.createElement('div');
+    d.textContent = `[${t}] ${msg}`;
+    el.log.appendChild(d);
+    el.log.scrollTop = el.log.scrollHeight;
+  }
+  function setState(kind, text){
+    el.dot.className = 'dot ' + (kind || '');
+    el.stateText.textContent = text;
+  }
+  function setDock(msg){ el.dockStatus.textContent = msg; }
+
+  
+  // ========= UI: Header plegable + Pantalla completa =========
+  function setHeaderCollapsed(collapsed){
+    if(!el.header) return;
+    el.header.classList.toggle('collapsed', !!collapsed);
+    if(el.hdrIcon) el.hdrIcon.textContent = collapsed ? '▸' : '▾';
+    localStorage.setItem('mv_mobile_hdrCollapsed', collapsed ? '1' : '0');
+  }
+  function toggleHeader(){
+    const collapsed = el.header?.classList.contains('collapsed');
+    setHeaderCollapsed(!collapsed);
+  }
+  async function toggleFullscreen(){
+    try{
+      if(!document.fullscreenElement){
+        await document.documentElement.requestFullscreen?.();
+      }else{
+        await document.exitFullscreen?.();
+      }
+    }catch(e){
+      log('❌ Pantalla completa: ' + (e?.message || e));
+    }
+  }
+
+function load(){
+    el.wsUrl.value = localStorage.getItem('mv_mobile_wsUrl') || 'ws://127.0.0.1:4455';
+    el.wsPass.value = localStorage.getItem('mv_mobile_wsPass') || '';
+    el.fps.value = localStorage.getItem('mv_mobile_fps') || '2';
+    el.durMs.value = localStorage.getItem('mv_mobile_durMs') || '300';
+    setHeaderCollapsed((localStorage.getItem('mv_mobile_hdrCollapsed')||'0')==='1');
+  }
+  function save(){
+    localStorage.setItem('mv_mobile_wsUrl', el.wsUrl.value.trim());
+    localStorage.setItem('mv_mobile_wsPass', el.wsPass.value);
+    localStorage.setItem('mv_mobile_fps', el.fps.value.trim());
+    localStorage.setItem('mv_mobile_durMs', el.durMs.value.trim());
+  }
+
+  let ws=null, msgId=1, timer=null;
+  const pending=new Map();
+
+  function request(type, data={}){
+    return new Promise((resolve,reject)=>{
+      if(!ws || ws.readyState !== WebSocket.OPEN){
+        reject(new Error("No conectado"));
+        return;
+      }
+      if(!ws || ws.readyState!==WebSocket.OPEN) return reject(new Error("WS no conectado"));
+      const id=String(msgId++);
+      pending.set(id,{resolve,reject});
+      ws.send(JSON.stringify({op:6,d:{requestType:type,requestId:id,requestData:data}}));
+      setTimeout(()=>{ if(pending.has(id)){ pending.delete(id); reject(new Error("Timeout")); } }, 7000);
+    });
+  }
+
+  async function sha256b64(str){
+    const buf=new TextEncoder().encode(str);
+    const hash=await crypto.subtle.digest('SHA-256', buf);
+    return btoa(String.fromCharCode(...new Uint8Array(hash)));
+  }
+
+  // Estado actual
+  let previewScene = "";
+  let programScene = "";
+  let scenes = [];
+  const tileMap = new Map();
+  let transitions = [];
+  let currentTransition = "";
+
+  function clearTiles(){ tileMap.clear(); el.grid.innerHTML=""; }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+
+  function makeTile(sceneName){
+    const card = document.createElement('div');
+    card.className = 'card tile';
+
+    const img = document.createElement('img');
+    img.className = 'viewer frame';
+    img.alt = sceneName;
+
+    const badge = document.createElement('div');
+    badge.className = 'badge';
+    badge.textContent = sceneName;
+
+    card.appendChild(img);
+    card.appendChild(badge);
+
+    // Click en escena:
+    // - Studio ON  -> manda a PREVIEW (como OBS)
+    // - Studio OFF -> manda DIRECTO a PROGRAM (Preview = Program)
+    card.addEventListener('click', async () => {
+      if(!ws || ws.readyState!==WebSocket.OPEN) return;
+
+      try{
+        if(studioEnabled){
+          await request("SetCurrentPreviewScene", { sceneName });
+          setDock(`Preview → ${sceneName}`);
+        }else{
+          await request("SetCurrentProgramScene", { sceneName });
+          setDock(`Program → ${sceneName}`);
+        }
+
+        // Tablet: cargar FUENTES (scene items) de la escena tocada
+        loadSceneItemsFor(sceneName);
+
+        // Re-sincroniza nombres (y en Studio OFF fuerza PV=PG)
+        await syncCurrentScenes();
+      }catch(e){
+        setDock(`No pude seleccionar escena: ${e.message}`);
+        log(`❌ Select scene: ${e.message}`);
+      }
+    });
+
+    el.grid.appendChild(card);
+    tileMap.set(sceneName, { img });
+  }
+
+  function applyHighlights(){
+    for(const [name, t] of tileMap.entries()){
+      t.img.classList.toggle('preview', studioEnabled && name === previewScene);
+      t.img.classList.toggle('program', name === programScene);
+    }
+  }
+
+  function fillTransitions(){
+    el.transSel.innerHTML = transitions.length
+      ? transitions.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+      : `<option value="">(sin transiciones)</option>`;
+    if(currentTransition) el.transSel.value = currentTransition;
+  }
+
+  async function connect(){
+    save();
+    const url=el.wsUrl.value.trim();
+    const pass=el.wsPass.value;
+    if(!url) return log("Pon ws://...");
+
+    setState('', 'conectando…');
+    log(`Conectando a ${url}`);
+    ws = new WebSocket(url);
+
+    ws.onopen = () => log("Socket abierto. Esperando Hello…");
+    ws.onclose = () => { setState('bad','desconectado'); log("Socket cerrado"); ws=null; stop(); };
+    ws.onerror = () => { setState('bad','error'); log("Socket error"); };
+
+    ws.onmessage = async (evt) => {
+      const msg = JSON.parse(evt.data);
+
+      if(msg.op===0){
+        const authRequired=!!msg.d?.authentication;
+        if(authRequired && pass){
+          const {challenge,salt}=msg.d.authentication;
+          const secret=await sha256b64(pass + salt);
+          const auth=await sha256b64(secret + challenge);
+          ws.send(JSON.stringify({op:1,d:{rpcVersion:1,authentication:auth}}));
+        }else{
+          ws.send(JSON.stringify({op:1,d:{rpcVersion:1}}));
+        }
+        return;
+      }
+
+      if(msg.op===2){
+        setState('ok','conectado');
+        log("Identificado OK");
+        await bootstrap();
+        return;
+      }
+
+      if(msg.op===7){
+        const id=msg.d.requestId;
+        const status=msg.d.requestStatus;
+        const data=msg.d.responseData;
+        if(pending.has(id)){
+          const {resolve,reject}=pending.get(id);
+          pending.delete(id);
+          status.result ? resolve(data) : reject(new Error(status.comment || "Request failed"));
+        }
+        return;
+      }
+
+      if(msg.op===5){
+        const evType = msg.d.eventType;
+
+        if(evType === "CurrentPreviewSceneChanged"){
+          previewScene = msg.d.eventData.sceneName;
+          if(studioEnabled) loadSceneItemsFor(previewScene);
+          applyHighlights();
+        }
+        if(evType === "CurrentProgramSceneChanged"){
+          programScene = msg.d.eventData.sceneName;
+          if(!studioEnabled){ previewScene = programScene; }
+          applyHighlights();
+          if(!studioEnabled) loadSceneItemsFor(programScene);
+        }
+        if(evType === "CurrentSceneTransitionChanged"){
+          currentTransition = msg.d.eventData.transitionName;
+          if(el.transSel.value !== currentTransition) el.transSel.value = currentTransition;
+          setDock(`Transición actual: ${currentTransition}`);
+        }
+        if(evType === "SceneListChanged"){
+          await refreshSceneList();
+        }
+
+        if(evType === "RecordStateChanged"){
+          const a = !!msg.d.eventData.outputActive;
+          setLed(el.ledRec, a, a);
+        }
+        if(evType === "StreamStateChanged"){
+          const a = !!msg.d.eventData.outputActive;
+          setLed(el.ledStream, a, a);
+        }
+        if(evType === "StudioModeStateChanged"){
+          studioEnabled = !!msg.d.eventData.studioModeEnabled;
+          paintStudioBtn();
+          await syncCurrentScenes();
+        }
+      }
+    };
+  }
+
+  async function bootstrap(){
+    try{
+      const sm = await request("GetStudioModeEnabled");
+      studioEnabled = !!sm.studioModeEnabled;
+      paintStudioBtn();
+      setDock(studioEnabled ? "Modo Estudio: ON ✅" : "Modo Estudio: OFF ✅ (selección directa)");
+
+      // Program siempre existe
+      const g = await request("GetCurrentProgramScene");
+      programScene = g.currentProgramSceneName;
+
+      // Preview solo si Studio ON (si no, PV = PG)
+      if(studioEnabled){
+        try{
+          const p = await request("GetCurrentPreviewScene");
+          previewScene = p.currentPreviewSceneName;
+        }catch(_e){
+          previewScene = programScene;
+        }
+      }else{
+        previewScene = programScene;
+      }
+
+      const tl = await request("GetSceneTransitionList");
+      transitions = (tl.transitions || []).map(t => t.transitionName);
+      currentTransition = tl.currentSceneTransitionName || "";
+      fillTransitions();
+      if(typeof tl.currentSceneTransitionDuration === "number"){
+        el.durMs.value = String(tl.currentSceneTransitionDuration);
+      }
+
+      await refreshSceneList();
+      await syncCurrentScenes();
+      await refreshRecStream();
+      await tickOnce();
+
+      log("Bootstrap OK");
+    }catch(e){
+      log("❌ Bootstrap falló: " + (e?.message || e));
+      setDock("Bootstrap falló. Revisa puerto/clave.");
+    }
+  }
+
+  async function refreshSceneList(){
+    try{
+      const s = await request("GetSceneList");
+      scenes = (s.scenes || []).map((x,i) => ({ name: x.sceneName, i }));
+
+      // Orden: prefijo numérico (01, 2, 14...) primero; el resto al final.
+      scenes.sort((a,b)=>{
+        const na = (a.name.match(/^\s*(\d{1,4})\b/)||[])[1];
+        const nb = (b.name.match(/^\s*(\d{1,4})\b/)||[])[1];
+        const ia = na ? parseInt(na,10) : Number.POSITIVE_INFINITY;
+        const ib = nb ? parseInt(nb,10) : Number.POSITIVE_INFINITY;
+        if(ia !== ib) return ia - ib;
+        return a.i - b.i; // estable
+      });
+      scenes = scenes.map(x => x.name);
+
+      clearTiles();
+      for(const name of scenes) makeTile(name);
+
+      applyHighlights();
+      log(`Escenas: ${scenes.length}`);
+    }catch(e){
+      log("❌ GetSceneList: " + e.message);
+    }
+  }
+
+  async function shot(sourceName, w, h, quality){
+    return await request("GetSourceScreenshot", {
+      sourceName,
+      imageFormat: "jpeg",
+      imageWidth: w,
+      imageHeight: h,
+      imageCompressionQuality: quality
+    });
+  }
+
+  /* ===================== THUMBNAILS DE ESCENAS (tiles) =====================
+     IMPORTANTE: NO capturamos TODAS las escenas en cada tick (mata el WS).
+     - Actualizamos en round‑robin (pocas por tick).
+     - Cada tile se actualiza de forma independiente; si falla una, no rompe el resto.
+     Ajustes:
+       - TILES_PER_TICK: cuántas miniaturas refrescar por tick (1–4 recomendado)
+  ========================================================================== */
+  const TILES_PER_TICK = 2;
+  let tileRR = 0;
+
+  async function tickTiles(w, h, q){
+    if(!scenes || scenes.length === 0) return;
+    const n = scenes.length;
+
+    // refrescamos solo unas pocas por ciclo (round-robin)
+    for(let k=0; k<Math.min(TILES_PER_TICK, n); k++){
+      const name = scenes[(tileRR + k) % n];
+      const t = tileMap.get(name);
+      if(!t || !t.img) continue;
+
+      try{
+        const r = await shot(name, w, h, q);
+        if(r && r.imageData){
+          t.img.src = r.imageData;
+        }
+      }catch(_e){
+        // Silencioso: si una escena falla puntual, no hacemos ruido.
+      }
+    }
+    tileRR = (tileRR + TILES_PER_TICK) % n;
+  }
+  /* =================== FIN THUMBNAILS DE ESCENAS =================== */
+
+
+  async function tickOnce(){
+    if(!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const fps = Math.max(1, Math.min(30, parseInt(el.fps.value || "2", 10)));
+    const topW = CAPTURE.TOP_W, topH = CAPTURE.TOP_H, qTop = CAPTURE.TOP_Q;
+    const tileW = CAPTURE.TILE_W, tileH = CAPTURE.TILE_H, qTile = CAPTURE.TILE_Q;
+
+    try{
+      // =========================
+      // Escena PROGRAM (siempre)
+      // =========================
+      const g = await request("GetCurrentProgramScene");
+      programScene = g.currentProgramSceneName;
+
+      // =========================
+      // Escena PREVIEW
+      // - Studio ON: OBS tiene preview real
+      // - Studio OFF: preview = program (no existe preview en OBS)
+      // =========================
+      if(studioEnabled){
+        // En Studio ON: NO pedimos preview en cada tick (evita colisiones de requests).
+        // El preview se actualiza por evento "CurrentPreviewSceneChanged" y por syncCurrentScenes() al conectar/togglear.
+        if(!previewScene) previewScene = programScene;
+      }
+
+      // Fallback (Studio ON): si por lo que sea NO llegan eventos de preview,
+      // refrescamos preview de forma MUY esporádica para que el borde verde aparezca.
+      if(studioEnabled){
+        const now = Date.now();
+        if((!previewScene || previewScene === "") && (now - lastPreviewPollTs > 1500)){
+          try{
+            const p = await request("GetCurrentPreviewScene");
+            previewScene = p.currentPreviewSceneName || previewScene;
+          }catch(_e){}
+          lastPreviewPollTs = now;
+        }
+      }
+else{
+        // En Studio OFF: no existe preview real
+        previewScene = programScene;
+      }
+
+      const t0 = performance.now();
+
+      // Capturas:
+      // - Studio ON: pv=preview, pg=program
+      // - Studio OFF: pv=pg=program (misma captura)
+      let pv, pg;
+      if(studioEnabled){
+        [pv, pg] = await Promise.all([
+          shot(previewScene, topW, topH, qTop),
+          shot(programScene, topW, topH, qTop),
+        ]);
+      }else{
+        pg = await shot(programScene, topW, topH, qTop);
+        pv = pg; // misma imagen
+      }
+
+      el.pvImg.src = pv.imageData;
+      el.pgImg.src = pg.imageData;
+
+      const msTop = Math.round(performance.now()-t0);
+      if(el.pgMs) el.pgMs.textContent = `${msTop} ms`;
+
+      // Monitores REC/STREAM (solo lectura): refresco ligero cada ~2s
+      tickOnce._mon = (tickOnce._mon || 0) + 1;
+      if(tickOnce._mon % Math.max(1, Math.round(fps*2)) === 0){
+        refreshRecStream();
+      }
+
+      // Tiles (escenas)
+      // Nota: en Studio OFF, el borde verde (preview) seguirá al rojo (program)
+      await tickTiles(tileW, tileH, qTile);
+      applyHighlights();
+
+    }catch(e){
+      // Anti-spam: evita inundar el log si falla el tick
+      const msg = (e && (e.message || e)) ? String(e.message || e) : "Request failed";
+      const now = Date.now();
+      if(now - lastTickErrTs > 2000 || msg !== lastTickErrMsg){
+        log("⚠️ Tick: " + msg);
+        lastTickErrTs = now;
+        lastTickErrMsg = msg;
+      }
+    }
+  }
+
+  async function setTransition(name){
+    try{
+      await request("SetCurrentSceneTransition", { transitionName: name });
+      currentTransition = name;
+      setDock(`Transición → ${name}`);
+    }catch(e){
+      setDock(`No pude cambiar transición: ${e.message}`);
+      log(`❌ SetCurrentSceneTransition: ${e.message}`);
+    }
+  }
+
+  async function setDuration(ms){
+    const n = Math.max(0, Math.min(60000, parseInt(ms || "0", 10)));
+    try{
+      await request("SetCurrentSceneTransitionDuration", { transitionDuration: n });
+      setDock(`Duración → ${n} ms`);
+    }catch(e){
+      setDock(`No pude cambiar duración: ${e.message}`);
+      log(`❌ SetCurrentSceneTransitionDuration: ${e.message}`);
+    }
+  }
+
+  async function take(){
+    save();
+    const tr = el.transSel.value;
+    if(tr && tr !== currentTransition) await setTransition(tr);
+    await setDuration(el.durMs.value);
+
+    try{
+      await request("TriggerStudioModeTransition");
+      setDock(`TAKE ✅ (${el.transSel.value || currentTransition})`);
+    }catch(e){
+      setDock(`TAKE ❌ ${e.message} (¿Modo Estudio OFF?)`);
+      log(`❌ TriggerStudioModeTransition: ${e.message}`);
+    }
+  }
+
+  function start(){
+    if(!ws || ws.readyState!==WebSocket.OPEN){
+      log("No conectado. Dale a Conectar primero.");
+      return;
+    }
+    const fps = Math.max(1, Math.min(30, parseInt(el.fps.value || "2", 10)));
+    const interval = Math.round(1000 / fps);
+    stop();
+    log(`Start: ${fps} FPS (${interval} ms)`);
+    timer = setInterval(tickOnce, interval);
+  }
+
+  function stop(){
+    if(timer){ clearInterval(timer); timer=null; }
+    log("Stop");
+  }
+
+  // Hooks UI
+  el.btnConnect.addEventListener('click', connect);
+  el.btnHdrToggle?.addEventListener('click', toggleHeader);
+  el.btnFs?.addEventListener('click', toggleFullscreen);
+  el.btnStart.addEventListener('click', start);
+  el.btnStop.addEventListener('click', stop);
+  el.transSel.addEventListener('change', () => setTransition(el.transSel.value));
+  el.durMs.addEventListener('change', () => setDuration(el.durMs.value));
+  el.btnTake.addEventListener('click', take);
+  el.btnStudio?.addEventListener('click', toggleStudioMode);
+
+  load();
+  setState('', 'desconectado');
+  log("Listo. 1) Conectar  2) Start  3) Click escena = Preview  4) TAKE");
+})();
+</script>
+</body>
+</html>
