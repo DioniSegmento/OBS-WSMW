@@ -220,13 +220,3 @@ Fiabilidad
 Y cero complicaciones
 
 Si quieres, puedo hacerte ahora:
-
-🔥 Versión README más técnica tipo enterprise
-
-💼 Versión comercial para vender el sistema
-
-🧠 Versión ultra detallada para documentación técnica profesional
-
-🎛 Versión enfocada a integración con ESP32 / hardware físico
-
-Tú decides el nivel de locura 😎
