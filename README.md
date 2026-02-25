@@ -4,6 +4,9 @@ Interfaz web en un único archivo HTML standalone que convierte cualquier móvil
 
 Optimizada para producción en directo: rápida, ligera y pensada para realización real.
 
+https://www.youtube.com/watch?v=2zwwTfyRJK8
+
+
 🚀 Características
 
 ✅ Conexión directa a OBS por WebSocket (v5)
